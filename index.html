@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>TAQA</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#306FAA">
+  <link rel="apple-touch-icon" href="/assets/logo.png">
+  <link rel="icon" type="image/png" href="/assets/logo.png">
+  <!-- Load Cairo font for consistent Arabic typography -->
+  <style>
+    /* Robust Arabic font stack to prevent ? characters */
+    html[lang="ar"] body {
+      font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    html[lang="en"] body {
+      font-family: 'Cairo', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #F2F2F3;
+      color: #333333;
+    }
+
+    .dark body {
+      background-color: #111827;
+      color: #d1d5db;
+    }
+
+    @media (min-width: 1280px) and (max-width: 1599px) {
+      html {
+        font-size: 90%;
+      }
+    }
+
+    @media (min-width: 1600px) {
+      html {
+        font-size: 100%;
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #e5e7eb;
+    }
+
+    .dark ::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 10px;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1"
+  }
+}
+</script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
