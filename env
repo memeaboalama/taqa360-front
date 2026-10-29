@@ -1,0 +1,9 @@
+
+# REACT_APP_API_BASE_URL = "https://api.huloolcom.net",
+# VITE_API_BASE_URL="https://api.huloolcom.net"
+REACT_APP_API_BASE_URL = "http://127.0.0.1:8000",
+VITE_API_BASE_URL="http://127.0.0.1:8000"
+# REACT_APP_API_BASE_URL = "https://sysadmin.huloolcom.net",
+# VITE_API_BASE_URL="https://sysadmin.huloolcom.net"
+# REACT_APP_API_BASE_URL = "https://sys.taqa360.com",
+# VITE_API_BASE_URL="https://sys.taqa360.com"
