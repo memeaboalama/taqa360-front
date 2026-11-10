@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Assignment, AssignmentStatus } from '../../../../shared/types';
 import { XIcon, CheckCircleIcon } from '../../../../shared/components/Icons';
 import { useAcceptAssignment, useRejectAssignment, useUpdateAssignmentStatus } from '../../../projects/hooks/useProjectQueries';
+import { useData } from '../../../../app/providers/DataProvider';
 
 interface EditAssignmentModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const toStatusEnum = (value: string | null | undefined): AssignmentStatus => {
 };
 
 const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClose, taskId, projectId, assignment }) => {
+  const { addToast } = useData();
   const [status, setStatus] = useState<AssignmentStatus>(AssignmentStatus.PENDING);
   const [reason, setReason] = useState<string>('');
   const [message, setMessage] = useState<string>('');
@@ -33,6 +35,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
 
   const handleSuccess = () => {
     setError('');
+    addToast('تم تحديث حالة التعيين بنجاح.', 'success');
     onClose();
   };
   const handleError = (e: Error) => {

@@ -189,9 +189,22 @@ const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({ assignment,
           try {
             if (modalState.mode === 'accept') {
               await acceptAssign({ assignmentId: assignment.id, note });
+              navigateTo('assignmentDetail', {
+                assignment: {
+                  ...assignment,
+                  status: 'accepted',
+                },
+              });
               addToast?.(t('toasts.invitationAccepted'), 'success');
             } else {
               await rejectAssign({ assignmentId: assignment.id, reason: note });
+              navigateTo('assignmentDetail', {
+                assignment: {
+                  ...assignment,
+                  status: 'rejected',
+                  rejectionReason: note,
+                },
+              });
               addToast?.(t('toasts.invitationDeclined'), 'success');
             }
             setModalState({ open: false, mode: modalState.mode });
