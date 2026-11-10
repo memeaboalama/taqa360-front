@@ -5,12 +5,12 @@
   "description": "Control panel for managing projects, specialists, users, and financial operations on the TAQA platform.",
   "icons": [
     {
-      "src": "/logo192.png",
+      "src": "/assets/logo.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/logo512.png",
+      "src": "/assets/logo.png",
       "type": "image/png",
       "sizes": "512x512"
     }

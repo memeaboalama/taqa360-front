@@ -39,6 +39,21 @@ function getValidationErrors(errorData: Record<string, any>): Record<string, str
   ]));
 }
 
+function getAuthToken(key: string): string | null {
+  try {
+    const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+    if (token) return token;
+  } catch {
+    // Fall back to the in-memory token when browser storage is unavailable.
+  }
+
+  try {
+    return useAuthStore.getState().tokens?.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Request/Response Interceptor Types
 export interface RequestInterceptor {
   onRequest?: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>;
@@ -140,16 +155,7 @@ export class BaseApiClient {
     // sessions use localStorage, while session-only tokens stay in sessionStorage.
     this.addRequestInterceptor({
       onRequest: (config) => {
-        let token: string | null = null;
-        try {
-          token = localStorage.getItem(this.config.authTokenKey)
-            || sessionStorage.getItem(this.config.authTokenKey);
-        } catch { token = null; }
-        if (!token) {
-          try {
-            token = useAuthStore.getState().tokens?.accessToken ?? null;
-          } catch { /* never block the request on store access */ }
-        }
+        const token = getAuthToken(this.config.authTokenKey);
         if (token && !config.headers?.Authorization) {
           config.headers = {
             ...config.headers,
@@ -576,7 +582,7 @@ export class BaseApiClient {
 
       xhr.setRequestHeader('Accept', 'application/json');
 
-      const token = localStorage.getItem(this.config.authTokenKey);
+      const token = getAuthToken(this.config.authTokenKey);
       if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }

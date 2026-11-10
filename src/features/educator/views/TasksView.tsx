@@ -8,6 +8,8 @@ interface TasksViewProps {
   navigateTo: (view: EducatorViewType, ctx?: any) => void;
 }
 
+type ApiDateValue = string | Date | { date: string; timezone_type?: number; timezone?: string } | null | undefined;
+
 type ApiTaskItem = {
   id: string;
   title: string;
@@ -15,7 +17,7 @@ type ApiTaskItem = {
   status: string;
   budget: number | null;
   deadline: string;
-  createdAt?: string | null;
+  createdAt?: ApiDateValue;
   created_at?: string | null;
   progress?: number;
   subTasksCount?: number;
@@ -25,7 +27,7 @@ type ApiTaskItem = {
     assigned_type: string;
     status: string;
     amount: number | null;
-    assigned_at?: string | null;
+    assigned_at?: ApiDateValue;
   };
   project: { id: string; title: string };
 };
@@ -33,11 +35,18 @@ type ApiTaskItem = {
 type StatusFilter = 'ALL' | 'RECENT' | 'IN_PROGRESS' | 'OVERDUE' | 'COMPLETED';
 
 export const isTaskCreatedWithinRange = (
-  createdAt: string | null | undefined,
+  createdAt: ApiDateValue,
   from: string,
   to: string
 ): boolean => {
-  const date = createdAt?.slice(0, 10);
+  const dateValue = createdAt instanceof Date
+    ? (Number.isNaN(createdAt.getTime()) ? undefined : createdAt.toISOString())
+    : typeof createdAt === 'string'
+      ? createdAt
+      : createdAt && typeof createdAt === 'object' && typeof createdAt.date === 'string'
+        ? createdAt.date
+        : undefined;
+  const date = dateValue?.slice(0, 10);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
 
   const parsedDate = new Date(`${date}T00:00:00Z`);

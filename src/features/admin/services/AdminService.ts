@@ -606,6 +606,7 @@ export class AdminService {
           original_name: f?.original_name ?? null,
           type: f?.type ?? null,
           collection_name: f?.collection_name ?? null,
+          approvedAt: f?.approvedAt ?? null,
           url: f?.url ?? '',
           size: f?.size ?? null,
           uploadedAt: f?.uploadedAt ?? null,
@@ -618,6 +619,14 @@ export class AdminService {
     // sit under a `data` key. Returning it bare made query.data undefined and
     // the tab reported "no deliverables" even on a 200 response.
     return { data: normalized } as any;
+    return { data: normalized } as any;
+  }
+  static async setProjectDeliverableApproval(projectId: string, deliverableId: string, approved: boolean) {
+    const response = await apiClient.patch<any>(
+      `/admin/projects/${projectId}/deliverables/${deliverableId}/approval`,
+      { approved }
+    );
+    return response.data;
   }
 
   static async createProjectAttachment(projectId: string, payload: { title: string; description?: string | null; attachment: File; }) {

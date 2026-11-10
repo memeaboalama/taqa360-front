@@ -30,8 +30,8 @@ const LoggedOutShell: React.FC<{
 
   // Default to educator login for the public root. Admin has its own /admin path.
   const [route, setRoute] = useState<string>(() => {
-    // return 'admin-auth';
-    return 'educator-auth';
+    return 'admin-auth';
+    // return 'educator-auth';
   });
 
   const [startAuthView, setStartAuthView] = useState<'educator-login' | 'register'>(() => {

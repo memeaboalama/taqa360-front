@@ -413,6 +413,22 @@ export function useProjectDeliverables(projectId: string) {
   );
 }
 
+export function useSetProjectDeliverableApproval() {
+  const queryClient = useQueryClient();
+  return useBaseMutation(
+    ['admin', 'project', 'deliverable-approval'],
+    ({ projectId, deliverableId, approved }: { projectId: string; deliverableId: string; approved: boolean }) =>
+      adminService.setProjectDeliverableApproval(projectId, deliverableId, approved),
+    {
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({
+          queryKey: QueryKeyFactory.related(QueryKeyFactory.QUERIES.PROJECTS, variables.projectId, 'deliverables')
+        });
+      }
+    }
+  );
+}
+
 export function useCreateProjectAttachment() {
   const queryClient = useQueryClient();
   return useBaseMutation(

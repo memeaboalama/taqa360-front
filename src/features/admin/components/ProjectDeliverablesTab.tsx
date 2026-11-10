@@ -5,7 +5,7 @@ import {
   CheckCircleIcon,
   ClockIcon,
 } from '../../../shared/components/Icons';
-import { useProjectDeliverables } from '../../../core/hooks/useAdminQueries';
+import { useProjectDeliverables, useSetProjectDeliverableApproval } from '../../../core/hooks/useAdminQueries';
 
 interface Props {
   projectId: string;
@@ -39,13 +39,14 @@ const statusLabel = (status: string): { label: string; color: string } => {
 };
 
 /**
- * Read-only view of what the specialists delivered from educator/taskDetail.
+ * Review what specialists delivered and approve files for customer access.
  *
  * These files live in task_files (attached to the task) while the project's own
  * attachments live in project_files, so the "المرفقات" tab could not show them.
  */
 const ProjectDeliverablesTab: React.FC<Props> = ({ projectId }) => {
   const query = useProjectDeliverables(projectId);
+  const approvalMutation = useSetProjectDeliverableApproval();
 
   const data: any = query.data;
   const groups: any[] = Array.isArray(data?.groups) ? data.groups : [];
@@ -152,19 +153,34 @@ const ProjectDeliverablesTab: React.FC<Props> = ({ projectId }) => {
                         </span>
                       )}
                       <span>{formatSize(f.size)}</span>
+                      {f.approvedAt && <span className="text-green-700">معتمد للعميل</span>}
                     </div>
                   </div>
-                  {f.url && (
-                    <a
-                      href={f.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                    {f.url && (
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                      >
+                        <CheckCircleIcon className="w-3.5 h-3.5" />
+                        عرض
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => approvalMutation.mutate({
+                        projectId,
+                        deliverableId: f.id,
+                        approved: !f.approvedAt,
+                      })}
+                      disabled={!f.id || approvalMutation.isPending}
+                      className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 disabled:opacity-50"
                     >
-                      <CheckCircleIcon className="w-3.5 h-3.5" />
-                      عرض
-                    </a>
-                  )}
+                      {f.approvedAt ? 'سحب الاعتماد' : 'اعتماد للعميل'}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

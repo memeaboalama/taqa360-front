@@ -19,6 +19,19 @@ describe('educator task date filters', () => {
     }, '2025-03-01')).toBe(true);
   });
 
+  it('accepts Laravel serialized date objects for assignment dates', () => {
+    expect(isTaskRecentlyAdded({
+      createdAt: '2024-01-01',
+      assignedEducator: {
+        id: 'educator-id',
+        assigned_type: 'DIRECT',
+        status: 'ACCEPTED',
+        amount: 10,
+        assigned_at: { date: '2025-03-10 11:15:00.000000', timezone_type: 3, timezone: 'Asia/Riyadh' },
+      },
+    }, '2025-03-01')).toBe(true);
+  });
+
   it('formats valid deadlines consistently and preserves invalid values', () => {
     expect(formatTaskDeadline('2025-03-10', 'en')).toBe('10/03/2025');
     expect(formatTaskDeadline('not-a-date', 'en')).toBe('not-a-date');

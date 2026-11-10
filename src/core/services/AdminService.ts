@@ -101,6 +101,8 @@ export const adminService = {
   // Deliverables uploaded by specialists from educator/taskDetail. They live in
   // task_files, so the project attachments endpoint above never returns them.
   getProjectDeliverables: (projectId: string) => FeatureAdminService.getProjectDeliverables(projectId),
+  setProjectDeliverableApproval: (projectId: string, deliverableId: string, approved: boolean) =>
+    FeatureAdminService.setProjectDeliverableApproval(projectId, deliverableId, approved),
   createProjectAttachment: (projectId: string, payload: { title: string; description?: string | null; attachment: File; }) => FeatureAdminService.createProjectAttachment(projectId, payload),
   updateProjectAttachment: (projectId: string, attachmentId: string, payload: { title?: string; description?: string | null; attachment?: File; }) => FeatureAdminService.updateProjectAttachment(projectId, attachmentId, payload),
   deleteProjectAttachment: (projectId: string, attachmentId: string) => FeatureAdminService.deleteProjectAttachment(projectId, attachmentId),

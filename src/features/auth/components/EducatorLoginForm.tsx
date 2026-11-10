@@ -147,6 +147,12 @@ const EducatorLoginForm: React.FC<EducatorLoginFormProps> = ({
               <p className="text-sm">{t('noAccount')} <button type="button" onClick={onNavigateToRegister} className="small-link font-medium">{t('createNewAccount')}</button></p>
             </div>
 
+            <div className="text-center mt-2">
+              <button type="button" onClick={onSwitchToAdmin} className="small-link hover:underline">
+                {language === 'ar' ? 'تسجيل دخول الإدارة' : 'Admin login'}
+              </button>
+            </div>
+
             {onBackToLanding && (
               <div className="text-center mt-2">
                 <button type="button" onClick={onBackToLanding} className="text-sm text-gray-600 hover:underline">← {t('back')}</button>
