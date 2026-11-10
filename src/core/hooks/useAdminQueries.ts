@@ -491,12 +491,15 @@ export function useAdminProjectTabCounts(params: { search?: string; creation_typ
   });
 }
 
-export function useAdminProject(id: string) {
+export function useAdminProject(id: string, options: { refetchInterval?: number } = {}) {
   return useBaseQuery(
     QueryKeyFactory.detail(QueryKeyFactory.QUERIES.PROJECTS, id),
     () => adminService.getProject(id),
     {
-      enabled: !!id
+      enabled: !!id,
+      refetchInterval: options.refetchInterval,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
     }
   );
 }

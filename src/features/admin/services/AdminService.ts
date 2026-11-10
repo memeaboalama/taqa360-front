@@ -535,7 +535,7 @@ export class AdminService {
   }
 
   static async getProject(id: string) {
-    const response = await apiClient.get<any>(`/admin/projects/${id}`);
+    const response = await apiClient.get<any>(`/admin/projects/${id}`, undefined, { cache: false });
     return response.data;
   }
 

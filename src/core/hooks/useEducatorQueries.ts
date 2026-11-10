@@ -572,6 +572,9 @@ export function useEducatorAssignments(params?: any) {
   const query = useQuery<any>({
     queryKey: QueryKeyFactory.list('educator-assignments', params),
     queryFn: () => educatorService.getAssignments(params),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Tolerate both payload shapes: the service unwraps the API envelope, but an

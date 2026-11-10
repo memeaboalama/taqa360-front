@@ -185,7 +185,7 @@ function normalizeBids(p: any, project: any) {
 }
 
 const ProjectDetailContainer: React.FC<Props> = ({ projectId, navigateTo }) => {
-  const projectQuery = useAdminProject(projectId);
+  const projectQuery = useAdminProject(projectId, { refetchInterval: 5000 });
   const educatorsParams = useMemo(() => ({ paginated: "true" as const, per_page: 100, status: 'active' as any }), []);
   const educatorsQuery = useAdminEducators(educatorsParams);
   const { addToast, handleUpdateTaskBiddingStatus } = useData();

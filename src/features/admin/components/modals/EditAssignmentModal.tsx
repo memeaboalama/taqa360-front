@@ -27,6 +27,12 @@ const toStatusEnum = (value: string | null | undefined): AssignmentStatus => {
     : AssignmentStatus.PENDING;
 };
 
+const editableStatuses = [
+  AssignmentStatus.ACCEPTED,
+  AssignmentStatus.PENDING,
+  AssignmentStatus.REJECTED,
+];
+
 const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClose, taskId, projectId, assignment }) => {
   const { addToast } = useData();
   const { t } = useLanguage();
@@ -50,6 +56,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
 
   const isSubmitting = useMemo(() => acceptMutation.isPending || rejectMutation.isPending || updateStatusMutation.isPending, [acceptMutation.isPending, rejectMutation.isPending, updateStatusMutation.isPending]);
   const isCancelled = toStatusEnum(assignment.status) === AssignmentStatus.CANCELLED;
+  const isEditableStatus = editableStatuses.includes(status);
 
   // Re-seed the form every time the modal opens (or the assignment changes).
   useEffect(() => {
@@ -132,7 +139,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">الحالة الجديدة</label>
             <div className="grid grid-cols-3 gap-2">
-              {Object.values(AssignmentStatus).map(s => (
+              {editableStatuses.map(s => (
                 <button
                   key={s}
                   type="button"
@@ -173,7 +180,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">إلغاء</button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isCancelled || !isEditableStatus}
               className="flex items-center gap-2 px-6 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             >
               <CheckCircleIcon className="w-4 h-4" /> {isSubmitting ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}

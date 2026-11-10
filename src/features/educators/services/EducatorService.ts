@@ -901,7 +901,7 @@ export class EducatorService {
 
   // New: Assignments & Tasks per latest contract
   static async getAssignments(params?: Record<string, any>): Promise<any> {
-    const response = await apiClient.get<any>('/educator/assignments', params);
+    const response = await apiClient.get<any>('/educator/assignments', params, { cache: false });
     return response;
   }
 

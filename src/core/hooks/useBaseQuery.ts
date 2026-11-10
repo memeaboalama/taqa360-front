@@ -28,6 +28,7 @@ export interface BaseQueryConfig<TData = any> {
   staleTime?: number;
   gcTime?: number;
   cacheTime?: number;
+  refetchInterval?: number | false;
   refetchOnWindowFocus?: boolean;
   refetchOnMount?: boolean;
   retry?: boolean | number;
@@ -129,6 +130,7 @@ export function useBaseQuery<TData = any>(
     ...(typeof config?.gcTime !== 'undefined' ? { gcTime: config.gcTime } : {}),
     ...(typeof config?.cacheTime !== 'undefined' ? { gcTime: config.cacheTime } : {}),
     ...(typeof config?.refetchOnWindowFocus !== 'undefined' ? { refetchOnWindowFocus: config.refetchOnWindowFocus } : {}),
+    ...(typeof config?.refetchInterval !== 'undefined' ? { refetchInterval: config.refetchInterval } : {}),
     ...(typeof config?.refetchOnMount !== 'undefined' ? { refetchOnMount: config.refetchOnMount } : {}),
     retry: typeof config?.retry !== 'undefined' ? config.retry : ((failureCount: number, error: AppError) => {
       if (!error || !(error instanceof AppError)) return failureCount < 2;
