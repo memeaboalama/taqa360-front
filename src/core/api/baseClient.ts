@@ -136,23 +136,18 @@ export class BaseApiClient {
    */
   private setupDefaultInterceptors(): void {
     // Auth Token Interceptor
-    // Single source of truth: the persisted auth store. The raw localStorage
-    // key is kept for compatibility, but if it is missing (desynced session:
-    // UI rehydrated as logged-in while the key is gone) fall back to the
-    // store's token and re-sync the key so later reads stay consistent.
+    // Keep token lookup aligned with the remember-me choice: persistent
+    // sessions use localStorage, while session-only tokens stay in sessionStorage.
     this.addRequestInterceptor({
       onRequest: (config) => {
         let token: string | null = null;
         try {
-          token = localStorage.getItem(this.config.authTokenKey);
+          token = localStorage.getItem(this.config.authTokenKey)
+            || sessionStorage.getItem(this.config.authTokenKey);
         } catch { token = null; }
         if (!token) {
           try {
-            const storeToken = useAuthStore.getState().tokens?.accessToken ?? null;
-            if (storeToken) {
-              token = storeToken;
-              try { localStorage.setItem(this.config.authTokenKey, storeToken); } catch { /* storage may be read-only; header still sent */ }
-            }
+            token = useAuthStore.getState().tokens?.accessToken ?? null;
           } catch { /* never block the request on store access */ }
         }
         if (token && !config.headers?.Authorization) {
