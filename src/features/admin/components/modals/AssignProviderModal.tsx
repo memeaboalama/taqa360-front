@@ -8,6 +8,7 @@ interface AssignProviderModalProps {
     isOpen: boolean;
     onClose: () => void;
     educators: Educator[];
+    existingEducatorIds?: string[];
     onAssign: (newAssignments: Omit<Assignment, 'id'>[]) => Promise<void>;
     isSubmitting?: boolean;
 }
@@ -65,12 +66,17 @@ const FilterControls: React.FC<{
 )};
 
 // Main Component
-const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClose, educators, onAssign, isSubmitting: externalSubmitting }) => {
+const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClose, educators, existingEducatorIds = [], onAssign, isSubmitting: externalSubmitting }) => {
     const { t } = useLanguage();
     const [internalSubmitting, setInternalSubmitting] = useState(false);
     const isSubmitting = externalSubmitting ?? internalSubmitting;
     // State management
-    const [selectedEducators, setSelectedEducators] = useState<Set<string>>(new Set());
+    const [selectedEducators, setSelectedEducators] = useState<Set<string>>(() => new Set(existingEducatorIds));
+    const existingEducatorIdSet = useMemo(() => new Set(existingEducatorIds), [existingEducatorIds]);
+    const newSelectedEducatorIds = useMemo(
+        () => Array.from(selectedEducators).filter(id => !existingEducatorIdSet.has(id)),
+        [selectedEducators, existingEducatorIdSet]
+    );
     const [assignmentType, setAssignmentType] = useState<AssignmentType>(AssignmentType.INVITATION);
     const [amount, setAmount] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -125,6 +131,8 @@ const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClo
     
     // Handlers
     const handleSelectEducator = (educatorId: string) => {
+        if (existingEducatorIdSet.has(educatorId)) return;
+
         setSelectedEducators(prev => {
             const newSet = new Set(prev);
             if (newSet.has(educatorId)) newSet.delete(educatorId);
@@ -135,11 +143,11 @@ const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClo
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(selectedEducators.size === 0 || isSubmitting) return;
+        if(newSelectedEducatorIds.length === 0 || isSubmitting) return;
         
         setInternalSubmitting(true);
         try {
-            const newAssignments: Omit<Assignment, 'id'>[] = Array.from(selectedEducators).map(educatorId => ({
+            const newAssignments: Omit<Assignment, 'id'>[] = newSelectedEducatorIds.map(educatorId => ({
                 educatorId,
                 type: assignmentType,
                 status: assignmentType === AssignmentType.DIRECT ? AssignmentStatus.ACCEPTED : AssignmentStatus.PENDING,
@@ -199,7 +207,7 @@ const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClo
                         {/* Educator List */}
                         <ul className="space-y-3 p-4 lg:p-6">
                             {filteredEducators.map(educator => (
-                                <li key={educator.id} onClick={() => handleSelectEducator(educator.id)} className={`py-3 px-4 flex items-center justify-between transition-all duration-200 rounded-lg cursor-pointer border-2 ${selectedEducators.has(educator.id) ? 'border-brand-primary bg-yellow-50 dark:bg-yellow-900/30' : 'border-transparent bg-gray-50 dark:bg-slate-900/50 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                                <li key={educator.id} onClick={() => handleSelectEducator(educator.id)} className={`py-3 px-4 flex items-center justify-between transition-all duration-200 rounded-lg ${existingEducatorIdSet.has(educator.id) ? 'cursor-default' : 'cursor-pointer'} border-2 ${selectedEducators.has(educator.id) ? 'border-brand-primary bg-yellow-50 dark:bg-yellow-900/30' : 'border-transparent bg-gray-50 dark:bg-slate-900/50 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                     <div className="flex items-center w-full">
                                         <Avatar src={educator.avatarUrl} name={educator.name} size={48} className="rounded-full me-4" />
                                         <div className="flex-grow">
@@ -235,9 +243,11 @@ const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClo
                                         <div key={e.id} className="flex items-center gap-1.5 bg-gray-200 dark:bg-gray-700 rounded-full pl-1 pr-2 py-1">
                                             <Avatar src={e.avatarUrl} name={e.name} size={20} className="rounded-full" />
                                             <span className="text-xs font-semibold">{e.name}</span>
-                                            <button type="button" onClick={() => handleSelectEducator(e.id)} className="text-gray-500 hover:text-red-500">
-                                                <SmallXIcon className="w-4 h-4"/>
-                                            </button>
+                                            {!existingEducatorIdSet.has(e.id) && (
+                                                <button type="button" onClick={() => handleSelectEducator(e.id)} className="text-gray-500 hover:text-red-500">
+                                                    <SmallXIcon className="w-4 h-4"/>
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -278,13 +288,13 @@ const AssignProviderModal: React.FC<AssignProviderModalProps> = ({ isOpen, onClo
                         </div>
                         <div className="sm:col-span-1 flex items-end gap-2">
                             <button type="button" onClick={onClose} disabled={isSubmitting} className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">{t('cancel')}</button>
-                            <button type="submit" disabled={selectedEducators.size === 0 || isSubmitting} className="w-full px-4 py-2.5 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            <button type="submit" disabled={newSelectedEducatorIds.length === 0 || isSubmitting} className="w-full px-4 py-2.5 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                 {isSubmitting ? (
                                     <>
                                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                         {t('loading')}
                                     </>
-                                ) : t('modals.saveCount', { count: selectedEducators.size })}
+                                ) : t('modals.saveCount', { count: newSelectedEducatorIds.length })}
                             </button>
                         </div>
                     </div>

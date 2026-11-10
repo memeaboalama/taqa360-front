@@ -439,6 +439,20 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
         setAssignModalOpen(true);
     };
 
+    const taskAssignments = (taskToAssign as any)?.assignments;
+    const existingEducatorIds = (Array.isArray(taskAssignments) && taskAssignments.length > 0
+        ? taskAssignments
+        : (taskToAssign as any)?.assignedEducators ?? [])
+        .filter((assignment: any) => String(assignment.status ?? '').toUpperCase() !== 'CANCELLED')
+        .map((assignment: any) => String(
+            assignment.educator?.id
+            ?? assignment.educatorId
+            ?? assignment.educator_id
+            ?? assignment.assignedTo
+            ?? ''
+        ))
+        .filter(Boolean);
+
     const handleAssignSubmit = async (newAssignments: Omit<Assignment, 'id'>[]) => {
         if (!taskToAssign) return;
         setIsAssigning(true);
@@ -456,7 +470,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
         <>
             <AddTaskModal isOpen={isAddTaskModalOpen} onClose={() => setIsAddTaskModalOpen(false)} onAddTask={handleTaskSubmit} />
             {isEditProjectModalOpen && <EditProjectDetailsModal isOpen={true} onClose={() => setIsEditProjectModalOpen(false)} project={project} isSaving={isSavingProject} onSave={async (details) => { try { await props.onUpdateProjectDetails(project.id, details); setIsEditProjectModalOpen(false); } catch { } }} />}
-            {isAssignModalOpen && <AssignProviderModal isOpen={true} onClose={() => setAssignModalOpen(false)} educators={educators} onAssign={handleAssignSubmit} isSubmitting={isAssigning} />}
+            {isAssignModalOpen && <AssignProviderModal isOpen={true} onClose={() => setAssignModalOpen(false)} educators={educators} existingEducatorIds={existingEducatorIds} onAssign={handleAssignSubmit} isSubmitting={isAssigning} />}
             {confirmationAction && <ConfirmationModal
                 isOpen={true}
                 onClose={() => setConfirmationAction(null)}
