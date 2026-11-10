@@ -1,13 +1,14 @@
 import React from 'react';
+import { APP_BRAND } from '../../core/config/brand';
 
 interface BrandLogoProps {
   className?: string;
   alt?: string;
 }
 
-// Place your logo file at: public/assets/logo.png
-// We reference it by URL so the app doesn't break if the file isn't imported at build time.
-const LOGO_URL = '/assets/logo.png';
+const LOGO_URL = APP_BRAND === 'huloolcom'
+  ? '/assets/logo-huloolcom.png'
+  : '/assets/logo.png';
 
 const BrandLogo: React.FC<BrandLogoProps> = ({ className = 'h-8 w-auto', alt = 'شعار المنصة' }) => {
   return (

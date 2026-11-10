@@ -4,8 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --mode taqa360",
+    "dev:taqa360": "vite --mode taqa360",
+    "dev:huloolcom": "vite --mode huloolcom",
+    "build": "vite build --mode taqa360",
+    "build:taqa360": "vite build --mode taqa360",
+    "build:huloolcom": "vite build --mode huloolcom",
     "preview": "vite preview",
     "test": "vitest run"
   },

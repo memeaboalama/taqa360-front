@@ -10,6 +10,16 @@
     --brand-dark: #042E44;
     --brand-light: #ECECEA;
     --primary-rgb: 48, 111, 170;
+    --accent-rgb: 234, 153, 62;
+    --brand-dark-rgb: 4, 46, 68;
+    --brand-light-rgb: 236, 236, 234;
+  }
+  :root[data-brand='huloolcom'] {
+    --primary-color: #F8C421;
+    --primary-hover: #e0b01e;
+    --accent-color: #DE9246;
+    --primary-rgb: 248, 196, 33;
+    --accent-rgb: 222, 146, 70;
   }
   html, body {
     font-family: 'Cairo', sans-serif;
