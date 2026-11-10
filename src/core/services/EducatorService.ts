@@ -156,11 +156,13 @@ export const educatorService = {
 
   getSocialLinks: async () => {
     const r = await BaseEducatorService.getSocialLinks();
-    return { ...r, data: (r as any).data.items ?? (r as any).data } as any;
+    const payload = (r as any)?.data ?? r;
+    return { status: true, message: null, data: payload?.items ?? payload } as any;
   },
   updateSocialLinks: async (links: SocialLinks) => {
     const r = await BaseEducatorService.updateSocialLinks(links as any);
-    return { ...r, data: (r as any).data.items ?? (r as any).data } as any;
+    const payload = (r as any)?.data ?? r;
+    return { status: true, message: null, data: payload?.items ?? payload } as any;
   },
   getPaymentInfo: async () => {
     const r = await BaseEducatorService.getPaymentInfo();
@@ -212,8 +214,9 @@ export const educatorService = {
   deleteDeliverable: (taskId: string, deliverableId: string) => BaseEducatorService.deleteDeliverable(taskId, deliverableId),
   updateSubTask: (taskId: string, subTaskId: string, data: { title?: string }) => BaseEducatorService.updateSubTask(taskId, subTaskId, data),
   deleteSubTask: (taskId: string, subTaskId: string) => BaseEducatorService.deleteSubTask(taskId, subTaskId),
-  updateTaskStatus: (taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED') => BaseEducatorService.updateTaskStatus(taskId, status),
+  startTask: (taskId: string) => BaseEducatorService.startTask(taskId),
   completeTask: (taskId: string) => BaseEducatorService.completeTask(taskId),
+  addTaskNote: (taskId: string, content: string) => BaseEducatorService.addTaskNote(taskId, content),
 
   getEarnings: (params?: any) => BaseEducatorService.getEarnings(params),
   getTransactions: (params?: any) => BaseEducatorService.getTransactions(params),

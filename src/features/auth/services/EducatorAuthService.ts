@@ -19,7 +19,11 @@ export class EducatorAuthService {
   static async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await apiClient.post<RawLoginResponse>(
       '/educator/auth/login',
-      credentials
+      {
+        email: credentials.email,
+        password: credentials.password,
+        remember_me: credentials.rememberMe ?? false,
+      }
     );
 
     // API returns ApiResponse<{ user|educator, tokens }>
@@ -179,4 +183,3 @@ export class EducatorAuthService {
     return response.data;
   }
 }
-

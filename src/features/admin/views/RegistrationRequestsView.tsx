@@ -4,7 +4,7 @@ import { useLanguage } from '../../../app/providers/LanguageProvider';
 import Avatar from '../../../shared/components/Avatar';
 import { StarIcon, SearchIcon, ViewGridIcon, ViewListIcon } from '../../../shared/components/Icons';
 import { useAdminEducators } from '../../../core/hooks/useAdminQueries';
-import { env } from '../../../core/config/env';
+import { DEFAULT_PAGE_SIZE } from '../../../core/config/pagination';
 
 interface RegistrationRequestsViewProps {
   navigateTo: (view: ViewType, id?: any) => void;
@@ -46,7 +46,7 @@ const RegistrationRequestsView: React.FC<RegistrationRequestsViewProps> = ({ nav
   const { t } = useLanguage();
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('compact');
   const [query, setQuery] = useState('');
-  const educatorsQuery = useAdminEducators({ paginated: 'true' as const, per_page: env.DEFAULT_PAGE_SIZE });
+  const educatorsQuery = useAdminEducators({ paginated: 'true' as const, per_page: DEFAULT_PAGE_SIZE });
   const educators = Array.isArray(educatorsQuery.data) ? (educatorsQuery.data as Educator[]) : ((educatorsQuery.data as any)?.educators || []) as Educator[];
 
   const pending = useMemo(() => (educators || []).map((e: any) => ({

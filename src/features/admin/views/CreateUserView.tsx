@@ -2,12 +2,60 @@ import React, { useState } from 'react';
 import { ViewType } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { ArrowLeftIcon, ArrowRightIcon, UserIcon, EnvelopeIcon, PhoneIcon, LockClosedIcon, MapPinIcon } from '../../../shared/components/Icons';
+import { ValidationAppError } from '../../../core/api/errors';
 
 interface CreateUserViewProps {
   navigateTo: (view: ViewType, id?: string) => void;
   onAddUser: (data: { name: string; email: string; phone?: string; password: string; city?: string; address?: string }) => Promise<void>;
   isPending?: boolean;
 }
+
+type CreateUserErrors = { name?: string; email?: string; phone?: string; password?: string; form?: string };
+
+export const getServerValidationErrors = (error: unknown): CreateUserErrors | null => {
+  if (error instanceof ValidationAppError) {
+    const errors: CreateUserErrors = {};
+    error.errors.forEach(({ field, message }) => {
+      if (field === 'name' || field === 'email' || field === 'phone' || field === 'password') {
+        errors[field] = message;
+      } else {
+        errors.form = message;
+      }
+    });
+    return errors;
+  }
+
+  if (!error || typeof error !== 'object') return null;
+
+  const apiError = error as {
+    statusCode?: number;
+    status?: number;
+    message?: string;
+    errors?: unknown;
+    data?: unknown;
+  };
+  if (apiError.statusCode !== 422 && apiError.status !== 422) return null;
+
+  const responseErrors = apiError.errors ?? apiError.data;
+  const errors: CreateUserErrors = {};
+  if (responseErrors && typeof responseErrors === 'object' && !Array.isArray(responseErrors)) {
+    Object.entries(responseErrors).forEach(([field, messages]) => {
+      const message = Array.isArray(messages) ? messages.find((item) => typeof item === 'string') : messages;
+      if (typeof message !== 'string') return;
+
+      if (field === 'name' || field === 'email' || field === 'phone' || field === 'password') {
+        errors[field] = message;
+      } else {
+        errors.form = message;
+      }
+    });
+  }
+
+  if (!Object.keys(errors).length && apiError.message) {
+    errors.form = apiError.message;
+  }
+  return errors;
+};
 
 const CreateUserView: React.FC<CreateUserViewProps> = ({ navigateTo, onAddUser, isPending = false }) => {
   const { t, language } = useLanguage();
@@ -17,11 +65,11 @@ const CreateUserView: React.FC<CreateUserViewProps> = ({ navigateTo, onAddUser, 
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<CreateUserErrors>({});
   const [submitted, setSubmitted] = useState(false);
 
   const validate = (): boolean => {
-    const newErrors: { name?: string; email?: string; password?: string } = {};
+    const newErrors: { name?: string; email?: string; phone?: string; password?: string } = {};
     if (!name.trim()) newErrors.name = t('createUser.nameRequired');
     if (!email.trim()) newErrors.email = t('createUser.emailRequired');
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = t('createUser.emailInvalid');
@@ -35,7 +83,24 @@ const CreateUserView: React.FC<CreateUserViewProps> = ({ navigateTo, onAddUser, 
     e.preventDefault();
     setSubmitted(true);
     if (!validate()) return;
-    await onAddUser({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, city: city.trim(), address: address.trim() });
+    setErrors({});
+    try {
+      await onAddUser({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        password,
+        city: city.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+    } catch (error) {
+      const serverErrors = getServerValidationErrors(error);
+      if (serverErrors) {
+        setErrors(serverErrors);
+        return;
+      }
+      throw error;
+    }
   };
 
   const inputClass = (field: keyof typeof errors) =>
@@ -54,6 +119,7 @@ const CreateUserView: React.FC<CreateUserViewProps> = ({ navigateTo, onAddUser, 
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border dark:border-gray-700 p-6 lg:p-8 space-y-4">
+          {errors.form && <p role="alert" className="text-red-600 text-sm">{errors.form}</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
@@ -85,8 +151,9 @@ const CreateUserView: React.FC<CreateUserViewProps> = ({ navigateTo, onAddUser, 
               </label>
               <div className="relative">
                 <PhoneIcon className="absolute top-1/2 -translate-y-1/2 start-3 w-5 h-5 text-gray-400" />
-                <input type="tel" id="phone" value={phone} onChange={e => setPhone(e.target.value)} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary block w-full p-2.5 ps-10 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white" placeholder={t('createUser.phoneLabel')} />
+                <input type="tel" id="phone" value={phone} onChange={e => { setPhone(e.target.value); if (submitted) validate(); }} className={`${inputClass('phone')} ps-10`} placeholder={t('createUser.phoneLabel')} />
               </div>
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
             </div>
 
             <div>

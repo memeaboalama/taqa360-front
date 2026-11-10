@@ -1,7 +1,7 @@
 import React from 'react';
 import RequestDetailView from './RequestDetailView';
-import { ViewType, EducationalRequest, EducationalRequestStatus, PaymentStatus, FulfillmentStatus, PricingType, User, Project } from '../../../shared/types';
-import { useAdminEducationalRequest, useUpdateEducationalRequest, useChangeEducationalRequestStatus } from '../../../core/hooks/useAdminQueries';
+import { ViewType, EducationalRequest, EducationalRequestStatus, PaymentStatus, FulfillmentStatus, PricingType, User, Project, RequestActivityType } from '../../../shared/types';
+import { useAdminEducationalRequest, useAdminProject, useUpdateEducationalRequest, useChangeEducationalRequestStatus } from '../../../core/hooks/useAdminQueries';
 import { useData } from '../../../app/providers/DataProvider';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 
@@ -14,6 +14,9 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
   const { addToast } = useData();
   const { t } = useLanguage();
   const reqQuery = useAdminEducationalRequest(requestId);
+  const rawRequest: any = (reqQuery.data as any)?.educationalRequest || reqQuery.data || {};
+  const linkedProjectId = rawRequest?.project?.id || rawRequest?.project?.uuid || '';
+  const linkedProjectQuery = useAdminProject(linkedProjectId);
   const updateMutation = useUpdateEducationalRequest();
   const changeStatusMutation = useChangeEducationalRequestStatus();
 
@@ -31,7 +34,15 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
     return <div className="p-6 text-center text-red-500">حدث خطأ أثناء جلب تفاصيل الطلب.</div>;
   }
 
-  const raw: any = (reqQuery.data as any)?.educationalRequest || (reqQuery.data as any);
+  const raw: any = rawRequest;
+  const projectPayload: any = (linkedProjectQuery.data as any)?.project || linkedProjectQuery.data;
+  const linkedProject: Project | null = projectPayload ? {
+    ...projectPayload,
+    projectNumber: projectPayload.projectNumber ?? projectPayload.project_number ?? null,
+    startDate: projectPayload.startDate ?? projectPayload.start_date ?? null,
+    createdBy: projectPayload.createdBy ?? projectPayload.created_by ?? null,
+    tasks: Array.isArray(projectPayload.tasks) ? projectPayload.tasks : [],
+  } as Project : raw.project || null;
 
   const normalizedAttachments = Array.isArray(raw.attachments)
     ? raw.attachments.map((a: any) => ({
@@ -63,10 +74,19 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
     if (s === 'COMPLETED') return FulfillmentStatus.COMPLETED;
     return FulfillmentStatus.PENDING;
   };
+  const formatActivityStatus = (status?: string) => {
+    if (!status) return '';
+    const key = `status.${status.replace(/[-\s]/g, '_').toUpperCase()}`;
+    const translated = t(key);
+    return translated === key ? status : translated;
+  };
 
   const request: EducationalRequest = {
     id: raw.id,
     code: raw.code,
+    serviceType: raw.serviceType || raw.type || null,
+    projectSiteType: raw.projectSiteType || raw.project_site_type || null,
+    solarSystemType: raw.solarSystemType || raw.solar_system_type || null,
     title: raw.title,
     description: raw.description || '',
     subject: raw.subject || raw.academicMajor || '',
@@ -84,7 +104,32 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
     attachments: normalizedAttachments,
     finalAgreement: raw.finalAgreement || '',
     additionalNotes: raw.additionalNotes ?? null,
-    activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : [],
+    activityLog: Array.isArray(raw.activityLog) ? raw.activityLog.map((activity: any) => ({
+      id: String(activity.id),
+      type: (activity.type === 'details'
+        ? 'DETAILS_UPDATED'
+        : activity.type === 'payment' || activity.activityType === 'payment'
+          ? 'PAYMENT_STATUS_CHANGED'
+          : activity.type === 'fulfillment' || activity.activityType === 'fulfillment'
+            ? 'FULFILLMENT_STATUS_CHANGED'
+            : 'STATUS_CHANGED') as RequestActivityType,
+      detailsKey: activity.type === 'details'
+        ? 'request.details_updated'
+        : (activity.type || activity.activityType) === 'payment'
+          ? 'request.payment_status_changed'
+          : (activity.type || activity.activityType) === 'fulfillment'
+            ? 'request.fulfillment_status_changed'
+            : 'request.status_changed',
+      detailsPayload: {
+        from: formatActivityStatus(activity.fromStatus),
+        to: formatActivityStatus(activity.toStatus),
+      },
+      changes: activity.changes ?? activity.details ?? undefined,
+      actor: activity.actor || 'الإدارة',
+      actorAvatar: '',
+      timestamp: activity.timestamp || '',
+      reason: activity.reason || undefined,
+    })) : [],
     createdAt: raw.createdAt || '',
   };
 
@@ -150,7 +195,8 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
     <RequestDetailView
       request={request}
       users={users}
-      linkedProject={raw.project || null}
+      linkedProject={linkedProject}
+      isLinkedProjectLoading={linkedProjectQuery.isLoading}
       navigateTo={navigateTo}
       isSaving={isSaving}
       onUpdateRequestStatus={handleUpdateRequestStatus}

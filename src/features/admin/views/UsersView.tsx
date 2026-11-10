@@ -6,7 +6,7 @@ import Avatar from '../../../shared/components/Avatar';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { useAdminUsers, useAdminEducationalRequests, useUpdateUserStatus, useDeleteUser } from '../../../core/hooks/useAdminQueries';
 import { formatDate } from '../../../shared/utils';
-import { env } from '../../../core/config/env';
+import { DEFAULT_PAGE_SIZE } from '../../../core/config/pagination';
 
 interface UsersViewProps {
     navigateTo: (view: ViewType, id: string) => void;
@@ -111,8 +111,8 @@ const StatCard: React.FC<{ title: string; value: number; icon: React.ReactNode }
 
 const UsersView: React.FC<UsersViewProps> = ({ navigateTo }) => {
     const { t } = useLanguage();
-    const usersQuery = useAdminUsers({ per_page: env.DEFAULT_PAGE_SIZE });
-    const requestsQuery = useAdminEducationalRequests({ per_page: env.DEFAULT_PAGE_SIZE });
+    const usersQuery = useAdminUsers({ per_page: DEFAULT_PAGE_SIZE });
+    const requestsQuery = useAdminEducationalRequests({ per_page: DEFAULT_PAGE_SIZE });
     const updateStatus = useUpdateUserStatus();
     const deleteUser = useDeleteUser();
 
@@ -122,7 +122,9 @@ const UsersView: React.FC<UsersViewProps> = ({ navigateTo }) => {
     const usersWithRequestCount = useMemo(() => {
         return users.map(user => ({
             ...user,
-            requestCount: educationalRequests.filter(req => req.requesterId === user.id).length
+            requestCount: educationalRequests.filter(req =>
+                [user.id, user.databaseId].filter(Boolean).includes(String(req.requesterId ?? req.requester_id))
+            ).length
         }));
     }, [users, educationalRequests]);
 

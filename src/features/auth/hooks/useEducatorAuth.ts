@@ -39,8 +39,8 @@ export const useEducatorAuth = () => {
 
   // Use hooks from useEducatorAuthQueries.ts
   const loginMutation = useEducatorLogin({
-    onSuccess: (data) => {
-      storeLogin(data.user, data.tokens);
+    onSuccess: (data, credentials) => {
+      storeLogin(data.user, data.tokens, credentials.rememberMe !== false);
       queryClient.invalidateQueries({ queryKey: educatorAuthQueryKeys.currentUser() });
     },
     onError: (error: Error) => {
@@ -90,16 +90,9 @@ export const useEducatorAuth = () => {
   const verifyResetCodeMutation = useEducatorVerifyResetCode();
   const resendResetCodeMutation = useEducatorResendResetCode();
 
-  const { data: currentUser } = useEducatorGetCurrentUser({
+  const { data: currentUser, error: currentUserError } = useEducatorGetCurrentUser({
     enabled: isAuthenticated && !isTokenExpired() && hasRole('educator'),
     staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
-    // If the query fails, it means the token might be invalid or expired, so log out
-    onError: () => {
-      if (isAuthenticated && isTokenExpired()) {
-        storeLogout();
-        queryClient.clear();
-      }
-    },
   });
 
   useEffect(() => {
@@ -107,6 +100,13 @@ export const useEducatorAuth = () => {
       setUser(currentUser);
     }
   }, [currentUser, setUser]);
+
+  useEffect(() => {
+    if (currentUserError && isAuthenticated && isTokenExpired()) {
+      storeLogout();
+      queryClient.clear();
+    }
+  }, [currentUserError, isAuthenticated, isTokenExpired, storeLogout, queryClient]);
 
   // This effect is now redundant as useEducatorGetCurrentUser handles token expiration
   // useEffect(() => {
@@ -256,4 +256,3 @@ export const useIsEducator = () => {
   const { hasRole } = useEducatorAuth();
   return hasRole('educator');
 };
-

@@ -1,5 +1,4 @@
 import { QueryClient } from '@tanstack/react-query';
-import { env } from '../config/env';
 
 export type RTEvent = {
   type: string;
@@ -19,7 +18,7 @@ class Realtime {
     if (this.connecting) return;
     this.connecting = true;
 
-    const url = (env as any).WS_URL || (env as any).SSE_URL || '';
+    const url = (import.meta as any).env?.VITE_WS_URL || (import.meta as any).env?.VITE_SSE_URL || '';
     if (!url) {
       this.connecting = false;
       return; // optional

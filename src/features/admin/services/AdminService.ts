@@ -26,7 +26,17 @@ import {
   SocialLink,
   PaymentInfo
 } from '../../../shared/types';
-import { env } from '../../../core/config/env';
+import { API_BASE_URL } from '../../../core/api/config';
+
+export interface EducatorInvitation {
+  id: string | number;
+  email: string;
+  status: 'sent' | 'expired' | 'completed';
+  sent_at: string;
+  expires_at: string;
+  completed_at: string | null;
+  educator: { id: string | number; name: string } | null;
+}
 
 const normalizeKey = (value: any) => typeof value === 'string'
   ? value.trim().replace(/[\s-]+/g, '_').toUpperCase()
@@ -112,8 +122,8 @@ const resolveUrl = (u: any): string | null => {
   const url = String(u || '').trim();
   if (!url) return null;
   if (/^(data:|blob:|https?:)\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url;
-  if (url.startsWith('/')) return `${env.API_BASE_URL}${url}`;
-  return `${env.API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
+  if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
+  return `${API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
 };
 
 const normalizeAcademicMajor = (value: any): AcademicMajor => ({
@@ -505,12 +515,23 @@ export class AdminService {
   static async getProjects(params?: {
     page?: number;
     per_page?: number;
+    tab?: string;
     status?: string;
     search?: string;
     created_by?: string;
   }): Promise<PaginatedResponse<Project>> {
     const response = await apiClient.get<PaginatedResponse<Project>>('/admin/projects', params);
     return response.data;
+  }
+
+  static async getProjectTabCounts(params?: {
+    search?: string;
+    creation_type?: string;
+    created_by?: string;
+  }): Promise<{ counts: Record<string, number> }> {
+    const response = await apiClient.get<any>('/admin/projects/tab-counts', params);
+    const raw = response.data as any;
+    return (raw?.data ?? raw) as { counts: Record<string, number> };
   }
 
   static async getProject(id: string) {
@@ -803,8 +824,8 @@ export class AdminService {
     const formData = new FormData();
     formData.append('attachment', file);
     if (title) formData.append('title', title);
-    const baseUrl = env.API_BASE_URL || '';
-    const token = localStorage.getItem(env.TOKEN_STORAGE_KEY);
+    const baseUrl = API_BASE_URL;
+    const token = localStorage.getItem('auth_token');
     const response = await fetch(`${baseUrl}/admin/tasks/subtasks/${subTaskId}/attachments`, {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' },
@@ -861,8 +882,15 @@ export class AdminService {
     await apiClient.delete<null>(`/admin/educators/${id}`);
   }
 
-  static async inviteEducator(email: string): Promise<void> {
-    await apiClient.post<null>('/admin/educators/invite', { email });
+  static async inviteEducator(email: string) {
+    const response = await apiClient.post<{ invitation: EducatorInvitation }>('/admin/educators/invite', { email });
+    return response.data;
+  }
+
+  static async getEducatorInvitations(): Promise<EducatorInvitation[]> {
+    const response = await apiClient.get<any>('/admin/educators/invitations');
+    const raw = response.data as any;
+    return (raw?.data?.invitations ?? raw?.invitations ?? []) as EducatorInvitation[];
   }
 
   static async completeRegistration(data: { token: string; name: string; phone: string; password: string; password_confirmation: string }): Promise<void> {
@@ -890,6 +918,11 @@ export class AdminService {
   // Identity verification
   static async approveEducatorIdentity(id: string) {
     const response = await apiClient.post<any>(`/admin/educators/${id}/approve-identity`);
+    return response.data;
+  }
+
+  static async sendEducatorVerificationReminder(id: string) {
+    const response = await apiClient.post<any>(`/admin/educators/${id}/send-verification-reminder`);
     return response.data;
   }
 
@@ -969,7 +1002,8 @@ export class AdminService {
     return {
       ...raw,
       data: rawList.map((u: any) => ({
-        id: String(u.id ?? u.uuid ?? ''),
+        id: String(u.uuid ?? u.id ?? ''),
+        databaseId: String(u.id ?? ''),
         name: u.name ?? '',
         email: u.email ?? '',
         phone: u.phone ?? '',
@@ -989,7 +1023,8 @@ export class AdminService {
     return {
       ...raw,
       data: {
-        id: String(u.id ?? u.uuid ?? ''),
+        id: String(u.uuid ?? u.id ?? ''),
+        databaseId: String(u.id ?? ''),
         name: u.name ?? '',
         email: u.email ?? '',
         phone: u.phone ?? '',
@@ -1032,6 +1067,7 @@ export class AdminService {
     page?: number;
     per_page?: number;
     status?: string;
+    paymentStatus?: string;
     search?: string;
   }): Promise<PaginatedResponse<EducationalRequest>> {
     const response = await apiClient.get<PaginatedResponse<EducationalRequest>>('/admin/educational-requests', params);

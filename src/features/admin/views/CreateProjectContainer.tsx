@@ -47,6 +47,8 @@ const CreateProjectContainer: React.FC<Props> = ({ navigateTo, selectedRequestId
 
   const educationalRequests: EducationalRequest[] = (rawRequests || []).map((r: any) => ({
     id: r.id,
+    code: r.code || r.requestNumber || r.request_number || String(r.id),
+    requesterName: r.requesterName || r.requester?.name || r.customer?.name || '',
     title: r.title,
     description: r.description || '',
     subject: r.subject || '',
@@ -70,6 +72,8 @@ const CreateProjectContainer: React.FC<Props> = ({ navigateTo, selectedRequestId
   if (singleRequestRaw) {
     const normalizedSingle: EducationalRequest = {
       id: singleRequestRaw.id,
+      code: singleRequestRaw.code || singleRequestRaw.requestNumber || singleRequestRaw.request_number || String(singleRequestRaw.id),
+      requesterName: singleRequestRaw.requesterName || singleRequestRaw.requester?.name || singleRequestRaw.customer?.name || '',
       title: singleRequestRaw.title,
       description: singleRequestRaw.description || '',
       subject: singleRequestRaw.subject || '',

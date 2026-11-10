@@ -15,6 +15,8 @@ type ApiTaskItem = {
   status: string;
   budget: number | null;
   deadline: string;
+  createdAt?: string | null;
+  created_at?: string | null;
   progress?: number;
   subTasksCount?: number;
   completedSubTasksCount?: number;
@@ -23,12 +25,48 @@ type ApiTaskItem = {
     assigned_type: string;
     status: string;
     amount: number | null;
-    assigned_at?: any;
+    assigned_at?: string | null;
   };
   project: { id: string; title: string };
 };
 
 type StatusFilter = 'ALL' | 'RECENT' | 'IN_PROGRESS' | 'OVERDUE' | 'COMPLETED';
+
+export const isTaskCreatedWithinRange = (
+  createdAt: string | null | undefined,
+  from: string,
+  to: string
+): boolean => {
+  const date = createdAt?.slice(0, 10);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+  const parsedDate = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) return false;
+
+  return (!from || date >= from) && (!to || date <= to);
+};
+
+export const isTaskRecentlyAdded = (
+  task: Pick<ApiTaskItem, 'createdAt' | 'created_at' | 'assignedEducator'>,
+  from: string
+) => isTaskCreatedWithinRange(task.assignedEducator?.assigned_at || task.createdAt || task.created_at, from, '');
+
+export const formatTaskDeadline = (deadline: string | null | undefined, language: 'ar' | 'en'): string => {
+  if (!deadline) return '-';
+
+  const date = deadline.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deadline;
+
+  const parsedDate = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) return deadline;
+
+  return new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsedDate);
+};
 
 const buildPageList = (current: number, last: number, maxVisible = 7) => {
     if (!last || last <= 1) return [];
@@ -53,7 +91,7 @@ const buildPageList = (current: number, last: number, maxVisible = 7) => {
 };
 
 const TasksView: React.FC<TasksViewProps> = ({ navigateTo }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [active, setActive] = useState<StatusFilter>('ALL');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -75,7 +113,7 @@ const TasksView: React.FC<TasksViewProps> = ({ navigateTo }) => {
 
     if (active === 'RECENT') {
       const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      list = list.filter((t) => (t as any).created_at ? String((t as any).created_at).slice(0,10) >= twoWeeksAgo : true);
+      list = list.filter((task) => isTaskRecentlyAdded(task, twoWeeksAgo));
     } else if (active === 'IN_PROGRESS') {
       list = list.filter((t) => (t.status || '').toUpperCase() === 'IN_PROGRESS');
     } else if (active === 'OVERDUE') {
@@ -84,8 +122,7 @@ const TasksView: React.FC<TasksViewProps> = ({ navigateTo }) => {
       list = list.filter((t) => (t.status || '').toUpperCase() === 'COMPLETED');
     }
 
-    if (from) list = list.filter((t) => (t as any).created_at ? String((t as any).created_at).slice(0,10) >= from : true);
-    if (to) list = list.filter((t) => (t as any).created_at ? String((t as any).created_at).slice(0,10) <= to : true);
+    if (from || to) list = list.filter((task) => isTaskCreatedWithinRange(task.createdAt || task.created_at, from, to));
     if (search.trim()) list = list.filter((t) => t.title.includes(search) || t.project.title.includes(search));
     return list;
   }, [allTasks, active, from, to, search]);
@@ -141,7 +178,7 @@ const TasksView: React.FC<TasksViewProps> = ({ navigateTo }) => {
           <p className="text-xs text-slate-500 dark:text-slate-400">{task.project.title}</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-xs">
-          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><ClockIcon className="w-4 h-4"/> {t('tasksView.deadline')}: <span className="font-semibold ms-1">{task.deadline || '-'}</span></div>
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><ClockIcon className="w-4 h-4"/> {t('tasksView.deadline')}: <span className="font-semibold ms-1">{formatTaskDeadline(task.deadline, language)}</span></div>
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><BriefcaseIcon className="w-4 h-4"/> {t('tasksView.budget')}: <span className="font-semibold ms-1">{task.budget ? task.budget.toLocaleString() + ' ' + t('tasksView.sarCurrency') : t('tasksView.notSet')}</span></div>
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><CheckCircleIcon className="w-4 h-4"/> {t('tasksView.progress')}: <span className="font-semibold ms-1">{progress}%</span></div>
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><AlertCircleIcon className="w-4 h-4"/> {t('tasksView.status')}: <span className="font-semibold ms-1">{task.status}</span></div>
@@ -203,11 +240,18 @@ const TasksView: React.FC<TasksViewProps> = ({ navigateTo }) => {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mt-4">
           <input placeholder={t('tasksView.searchTaskOrProject')} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="px-3 py-2 text-sm rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600" />
           <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-3 py-2 text-xs"><FilterIcon className="w-4 h-4"/> {t('tasksView.filterByDate')}</div>
           <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} className="px-3 py-2 text-sm rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600" />
           <input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }} className="px-3 py-2 text-sm rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600" />
+          <button
+            type="button"
+            onClick={() => { setActive('ALL'); setSearch(''); setFrom(''); setTo(''); setPage(1); }}
+            className="px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+          >
+            {t('tasksView.clearFilters')}
+          </button>
         </div>
       </div>
 

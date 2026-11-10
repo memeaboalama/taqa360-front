@@ -14,7 +14,7 @@ interface TaskDetailViewProps {
     onAddSubTask: (projectId: string, taskId: string, title: string) => void;
     onToggleSubTask: (projectId: string, taskId: string, subTaskId: string) => void;
     onAddNote: (projectId: string, taskId: string, content: string) => void;
-    onUpdateTaskStatus: (projectId: string, taskId: string, newStatus: ProjectStatus) => void | Promise<void>;
+    onUpdateTaskStatus: (projectId: string, taskId: string, newStatus: ProjectStatus.IN_PROGRESS | ProjectStatus.COMPLETED) => void | Promise<void>;
     onUpdateTask: (projectId: string, taskId: string, taskData: Partial<Task>) => void;
     onAddDeliverable: (projectId: string, taskId: string, deliverable: Omit<Attachment, 'id'>) => void | Promise<void>;
     onEditDeliverable: (projectId: string, taskId: string, deliverableId: string, file: File, title: string) => void | Promise<void>;
@@ -270,6 +270,8 @@ const TaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
     const { project, task, onAddSubTask, onToggleSubTask, onUpdateTaskStatus, onAddNote, onAddDeliverable, onEditDeliverable, onDeleteDeliverable, onEditSubTask, onAddSubTaskAttachment } = props;
     const { t, language } = useLanguage();
     const BackIcon = language === 'ar' ? ArrowRightIcon : ArrowLeftIcon;
+    const isPending = task.status === ProjectStatus.PENDING;
+    const isInProgress = task.status === ProjectStatus.IN_PROGRESS;
     const isCompleted = task.status === ProjectStatus.COMPLETED;
 
     // The task payload carries only this specialist's own assignment (the
@@ -279,7 +281,7 @@ const TaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
     const myAssignment = (task.assignments || [])[0] as any;
     const isAssignmentAccepted =
         String(myAssignment?.status ?? '').trim().toUpperCase() === 'ACCEPTED';
-    const canAct = isAssignmentAccepted && !isCompleted;
+    const canAct = isAssignmentAccepted && (isPending || isInProgress);
 
     const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
     const [newDeliverable, setNewDeliverable] = useState<{ file: File | null, title: string }>({ file: null, title: '' });
@@ -342,11 +344,11 @@ const TaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
         }
     };
 
-    const handleCompleteTask = async () => {
+    const handleTaskStatusChange = async () => {
         if (isCompletingTask) return;
         setIsCompletingTask(true);
         try {
-            await onUpdateTaskStatus(project.id, task.id, ProjectStatus.COMPLETED);
+            await onUpdateTaskStatus(project.id, task.id, isPending ? ProjectStatus.IN_PROGRESS : ProjectStatus.COMPLETED);
         } catch {
         } finally {
             setIsCompletingTask(false);
@@ -372,7 +374,7 @@ const TaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
                     <p className="text-slate-500 dark:text-slate-400 mt-1">{t('taskDetail.partOfProject')}: {project.title}</p>
                 </div>
                 <button
-                    onClick={handleCompleteTask}
+                    onClick={handleTaskStatusChange}
                     disabled={!canAct || isCompletingTask}
                     title={!isAssignmentAccepted ? 'متاح بعد قبول التعيين فقط' : undefined}
                     className="w-full sm:w-auto p-2 sm:p-3 text-sm sm:text-base font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 flex items-center justify-center gap-2 shadow-lg shadow-brand-primary/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
@@ -382,7 +384,13 @@ const TaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
                     ) : (
                         <CheckCircleIcon className="h-6 w-6"/>
                     )}
-                    {isCompleted ? t('taskDetail.taskCompleted') : t('taskDetail.completeTask')}
+                    {isCompleted
+                        ? t('taskDetail.taskCompleted')
+                        : isPending
+                          ? t('taskDetail.startTask')
+                          : isInProgress
+                            ? t('taskDetail.completeTask')
+                            : t('status.CANCELED')}
                 </button>
             </div>
 

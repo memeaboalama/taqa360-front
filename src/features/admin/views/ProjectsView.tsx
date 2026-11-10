@@ -4,10 +4,10 @@ import { PlusIcon, SearchIcon, FilterIcon, EyeIcon, TrashIcon, LockOpenIcon, Loc
 import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { useAdminProjects, usePublishProject, useUnpublishProject, useDeleteProject, useAdminEducators } from '../../../core/hooks/useAdminQueries';
-import { env } from '../../../core/config/env';
 import Avatar from '../../../shared/components/Avatar';
 import { PaginatedRequestParams } from '../../../core/api/types';
 import { resolveProjectTeam } from '../../../shared/utils';
+import { getProjectTaskCount, type ProjectTabKey } from '../constants/projectSections';
 
 function useDebouncedValue<T>(value: T, delay = 400): T {
   const [debounced, setDebounced] = useState(value);
@@ -20,7 +20,8 @@ function useDebouncedValue<T>(value: T, delay = 400): T {
 
 // Pagination helper to render compact page list with ellipsis
 const buildPageList = (current: number, last: number, maxVisible = 7) => {
-  if (!last || last <= 1) return [];
+  if (!last || last < 1) return [];
+  if (last === 1) return [1];
   const pages: (number | string)[] = [];
   const half = Math.floor(maxVisible / 2);
   let start = Math.max(1, current - half);
@@ -43,6 +44,7 @@ const buildPageList = (current: number, last: number, maxVisible = 7) => {
 
 interface ProjectsViewProps {
     navigateTo: (view: ViewType, projectId?: string) => void;
+    activeTab: ProjectTabKey;
 }
 
 const getStatusBadge = (status: string | undefined, t: (key: string) => string) => {
@@ -66,7 +68,7 @@ const ProjectCard: React.FC<{
     const { t } = useLanguage();
 
     const completedTasksCount = project.completedTasksCount || 0;
-    const totalTasks = project.tasksCount || (project.tasks ? project.tasks.length : 0);
+    const totalTasks = getProjectTaskCount(project);
     const progress = project.progress || (totalTasks > 0 ? (completedTasksCount / totalTasks) * 100 : 0);
 
     // Same helper as the project detail team card, so the two screens can never
@@ -163,7 +165,7 @@ const ProjectRow: React.FC<{
                 </span>
             </td>
             <td className="px-6 py-4">{project.budget ? `${project.budget.toLocaleString()} ${t('sarCurrency')}` : t('projectsView.notSet')}</td>
-            <td className="px-6 py-4">{project.tasks?.length || 0}</td>
+            <td className="px-6 py-4">{getProjectTaskCount(project)}</td>
             <td className="px-6 py-4">{project.deadline || t('projectsView.notSet')}</td>
             <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
@@ -185,7 +187,7 @@ const ProjectRow: React.FC<{
 };
 
 
-const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
+const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo, activeTab }) => {
   const { t } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -206,7 +208,8 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
     const params: any = {
       paginated: "true" as const,
       per_page: perPage,
-      page: currentPage
+      page: currentPage,
+      tab: activeTab,
     };
 
     if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
@@ -216,7 +219,7 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
     if (sortBy.length > 0) params.sorting = sortBy;
 
     return params;
-  }, [debouncedSearch, statusFilter, typeFilter, debouncedCreatedBy, sortBy, currentPage, perPage]);
+  }, [debouncedSearch, statusFilter, typeFilter, debouncedCreatedBy, sortBy, currentPage, perPage, activeTab]);
 
   // Fetch data from real APIs with filters
   const projectsQuery = useAdminProjects(projectsParams);
@@ -230,18 +233,18 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
   const pagination = (projectsQuery as any).pagination || projectsQuery.data?.pagination;
   const educators = educatorsQuery.data?.data?.educators || [];
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   // Handle filter changes
   const handleFilterChange = useCallback(() => {
     setCurrentPage(1); // Reset to first page when filters change
   }, []);
 
-  // Reset filters
-  const resetFilters = useCallback(() => {
-    setSearchTerm('');
+  const clearSelectedFilters = useCallback(() => {
     setStatusFilter('');
     setTypeFilter('');
-    setCreatedByFilter('');
-    setSortBy([]);
     setCurrentPage(1);
   }, []);
 
@@ -418,6 +421,15 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
               </select>
             </div>
             <div className="flex items-end justify-end gap-2">
+              {(statusFilter || typeFilter) && (
+                <button
+                  type="button"
+                  onClick={clearSelectedFilters}
+                  className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 dark:text-red-300 dark:bg-red-900/30 dark:border-red-800 dark:hover:bg-red-900/50"
+                >
+                  {t('projectsView.resetFilters')}
+                </button>
+              )}
               <div className="flex items-center gap-2">
                 <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{t('projectsView.perPage')}:</label>
                 <select
@@ -436,7 +448,6 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
               </div>
             </div>
           </div>
-
           {/* <div className="flex flex-wrap gap-2 mb-4">
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500 dark:text-slate-400">{t('projectsView.sortBy')}:</label>
@@ -489,24 +500,43 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
               </select>
             </div>
 
-            <button
-              onClick={resetFilters}
-              className="px-3 py-1 text-xs bg-red-100 border border-red-300 text-red-700 rounded hover:bg-red-200 dark:bg-red-900 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-800"
-            >
-              {t('projectsView.resetFilters')}
-            </button>
           </div> */}
 
-          {projectsQuery.isLoading && (
-            <div className="text-center py-4">
-              <div className="inline-block animate-spin rounded-full h-6 w-6" style={{ borderBottom: '2px solid var(--primary-color)' }}></div>
-              <span className="ml-2 text-sm text-slate-600 dark:text-slate-400">{t('loading')}</span>
-            </div>
-          )}
         </div>
 
-        {!projectsQuery.isLoading && (
+        {projectsQuery.isLoading ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-600 dark:text-slate-300" role="status" aria-live="polite">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-b-brand-primary" />
+            <span className="text-sm">{t('projectsView.loading')}</span>
+          </div>
+        ) : projectsQuery.isError && projects.length === 0 ? (
+          <div className="text-center py-12 px-4 bg-white dark:bg-slate-800 rounded-xl border border-red-200 dark:border-red-900 mb-6" role="alert">
+            <p className="text-red-700 dark:text-red-300 mb-4">{t('projectsView.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => projectsQuery.refetch()}
+              className="px-4 py-2 text-sm font-semibold text-white rounded-lg"
+              style={{ backgroundColor: 'var(--primary-color)' }}
+            >
+              {t('projectsView.retry')}
+            </button>
+          </div>
+        ) : (
           <>
+            {projectsQuery.isError && (
+              <div className="flex items-center justify-center gap-3 py-3 mb-4 text-sm text-red-700 dark:text-red-300" role="alert">
+                <span>{t('projectsView.loadError')}</span>
+                <button type="button" onClick={() => projectsQuery.refetch()} className="font-semibold underline">
+                  {t('projectsView.retry')}
+                </button>
+              </div>
+            )}
+            {projectsQuery.isFetching && (
+              <div className="flex items-center justify-center gap-2 py-3 mb-4 text-sm text-slate-600 dark:text-slate-300" role="status" aria-live="polite">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-200 border-b-brand-primary" />
+                <span>{t('projectsView.refreshing')}</span>
+              </div>
+            )}
             {viewMode === 'cards' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
                 {projects.map((project) => (
@@ -601,8 +631,16 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo }) => {
                           if (p === '...') return <div key={`dots-${idx}`} className="px-2">...</div>;
                           const page = Number(p);
                           const isActive = page === current;
+                          const isOnlyPage = last === 1;
                           return (
-                            <button key={page} onClick={() => goToPage(page)} className={`px-3 py-2 text-sm rounded-lg ${isActive ? 'text-white' : 'border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`} style={isActive ? { backgroundColor: 'var(--primary-color)' } : {}}>
+                            <button
+                              key={page}
+                              onClick={() => goToPage(page)}
+                              disabled={isOnlyPage || isActive}
+                              aria-current={isActive ? 'page' : undefined}
+                              className={`px-3 py-2 text-sm rounded-lg ${isOnlyPage ? 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-400 cursor-not-allowed' : isActive ? 'text-white' : 'border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                              style={isActive && !isOnlyPage ? { backgroundColor: 'var(--primary-color)' } : {}}
+                            >
                               {page}
                             </button>
                           );

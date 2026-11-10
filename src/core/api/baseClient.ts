@@ -16,10 +16,28 @@ import {
   TimeoutError, 
   ErrorUtils, 
   errorManager,
-  ErrorCode 
+  ErrorCode,
+  ErrorSeverity
 } from './errors';
-import { env } from '../config/env';
+import { API_BASE_URL } from './config';
 import { useAuthStore } from '../../features/auth/stores/authStore';
+
+function getValidationErrors(errorData: Record<string, any>): Record<string, string[]> | undefined {
+  const errors = errorData.errors ?? errorData.data;
+  if (!errors || typeof errors !== 'object' || Array.isArray(errors)) return undefined;
+
+  const entries = Object.entries(errors);
+  if (!entries.length || !entries.every(([, messages]) =>
+    typeof messages === 'string' || (Array.isArray(messages) && messages.every((message) => typeof message === 'string'))
+  )) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries.map(([field, messages]) => [
+    field,
+    Array.isArray(messages) ? messages : [messages],
+  ]));
+}
 
 // Request/Response Interceptor Types
 export interface RequestInterceptor {
@@ -91,11 +109,11 @@ export class BaseApiClient {
 
   constructor(config: Partial<ApiClientConfig> = {}) {
     this.config = {
-      baseURL: env.API_BASE_URL || 'http://localhost:8000/api',
+      baseURL: API_BASE_URL,
       timeout: 30000,
       retryAttempts: 3,
       retryDelay: 1000,
-      enableLogging: env.NODE_ENV === 'development',
+      enableLogging: (import.meta as any).env?.DEV === true,
       enableCaching: false,
       authTokenKey: 'auth_token',
       ...config
@@ -292,7 +310,7 @@ export class BaseApiClient {
         const apiError = ErrorUtils.fromApiError({
           status: response.status,
           message: errorData.message || response.statusText,
-          errors: errorData.errors
+          errors: getValidationErrors(errorData)
         }, { url });
         
         // Apply response error interceptors
@@ -312,6 +330,17 @@ export class BaseApiClient {
 
       // Parse successful response
       const responseData: ApiResponse<T> = await response.json();
+
+      if (responseData.status === false) {
+        throw new AppError(
+          responseData.message || 'تعذر تنفيذ الطلب',
+          ErrorCode.BUSINESS_RULE_VIOLATION,
+          400,
+          ErrorSeverity.MEDIUM,
+          true,
+          { errors: responseData.errors, url }
+        );
+      }
       
       // Apply response interceptors
       let processedResponse = responseData;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { EnvelopeIcon, LockClosedIcon } from '../../../shared/components/Icons';
 import BrandLogo from '../../../shared/components/BrandLogo';
@@ -6,7 +6,6 @@ import LanguageSwitcher from '../../../shared/components/LanguageSwitcher';
 import { LoginCredentials } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { useEducatorAuth } from '../hooks/useEducatorAuth';
-import { useFormPersistence } from '../../../shared/hooks/useFormPersistence';
 
 interface EducatorLoginFormProps {
   onNavigateToRegister: () => void;
@@ -38,13 +37,17 @@ const EducatorLoginForm: React.FC<EducatorLoginFormProps> = ({
     }
   });
   const { register, handleSubmit, formState: { errors } } = form;
-  useFormPersistence('educator-login', form);
+
+  useEffect(() => {
+    sessionStorage.removeItem('form.persist.educator-login');
+  }, []);
 
   const onSubmit = async (data: EducatorLoginFormData) => {
     try {
       const loginData: LoginCredentials = {
         email: data.email,
-        password: data.password
+        password: data.password,
+        rememberMe: data.rememberMe,
       };
       await login(loginData);
     } catch (error) {

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { EducationalRequest, EducationalRequestStatus, Project, Attachment, RequestActivityLog, RequestActivityType, PaymentStatus, FulfillmentStatus, PricingType, User, ViewType } from '../../../shared/types';
+import { EducationalRequest, EducationalRequestStatus, Project, Attachment, RequestActivityLog, RequestActivityType, PaymentStatus, FulfillmentStatus, User, ViewType } from '../../../shared/types';
 import StatusUpdateModal from '../components/modals/StatusUpdateModal';
-import { AcademicCapIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CheckBadgeIcon, ClipboardListIcon, CreditCardIcon, DocumentTextIcon, DollarSignIcon, EditIcon, LightBulbIcon, MapPinIcon, PaperclipIcon, PhoneIcon, PlusIcon, SendIcon, ArrowLeftIcon, ArrowRightIcon, BookOpenIcon, LinkIcon, UserCheckIcon, ClockIcon } from '../../../shared/components/Icons';
+import { AcademicCapIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CheckBadgeIcon, ClipboardListIcon, CreditCardIcon, DocumentTextIcon, DollarSignIcon, EditIcon, LightBulbIcon, MapPinIcon, PaperclipIcon, PhoneIcon, PlusIcon, SendIcon, ArrowLeftIcon, ArrowRightIcon, BookOpenIcon, LinkIcon, UserCheckIcon, UserIcon, ClockIcon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import Avatar from '../../../shared/components/Avatar';
-import { PREDEFINED_MAJORS } from '../../../shared/constants';
 
 interface RequestDetailViewProps {
     request: EducationalRequest;
     users: User[];
     linkedProject: Project | null;
+    isLinkedProjectLoading?: boolean;
     navigateTo: (view: ViewType, id?: string | null) => void;
     isSaving?: boolean;
     onUpdateRequestStatus: (requestId: string, newStatus: EducationalRequestStatus, reason?: string) => void;
@@ -22,28 +22,52 @@ interface RequestDetailViewProps {
 type EditableSection = 'info' | 'financials' | 'contact' | 'agreement' | 'key_info' | null;
 type ActiveTab = 'details' | 'activity' | 'project';
 
-type RequestDetailFormData = Partial<Pick<EducationalRequest, 'title' | 'description' | 'budget' | 'pricingType' | 'finalAgreement' | 'subject' | 'educationLevel' | 'expectedDeliveryDate'> & Pick<User, 'name' | 'phone' | 'city' | 'address'>>;
+type RequestDetailFormData = Partial<Pick<EducationalRequest, 'title' | 'description' | 'budget' | 'finalAgreement' | 'serviceType' | 'projectSiteType' | 'solarSystemType' | 'expectedDeliveryDate'> & Pick<User, 'name' | 'phone' | 'city' | 'address'>>;
 
-const formatEducationLevel = (level?: string) => {
-    if (!level) return 'غير محدد';
-    const map: Record<string, string> = {
-        'Elementary': 'ابتدائي',
-        'Middle': 'متوسط',
-        'HighSchool': 'ثانوي',
-        'Diploma': 'دبلوم',
-        'Bachelor': 'بكالوريوس',
-        'Master': 'ماجستير',
-        'Doctorate': 'دكتوراه',
-        'ابتدائي': 'ابتدائي',
-        'متوسط': 'متوسط',
-        'ثانوي': 'ثانوي',
-        'دبلوم': 'دبلوم',
-        'بكالوريوس': 'بكالوريوس',
-        'ماجستير': 'ماجستير',
-        'دكتوراه': 'دكتوراه',
-    };
-    return map[level] || level;
+type ProjectTrackingData = Omit<Project, 'createdBy' | 'tasks' | 'progress'> & {
+    projectNumber?: number | string | null;
+    startDate?: string | null;
+    tasksCount?: number;
+    completedTasksCount?: number;
+    createdBy?: string | { name?: string } | null;
+    progress?: number | { percentage?: number; completedTasks?: number; totalTasks?: number };
+    tasks?: Array<{
+        id?: string;
+        status?: string;
+        assignedEducators?: Array<{ id?: string; status?: string; educator?: { id?: string; name?: string } }>;
+        assignments?: Array<{ id?: string; status?: string; educator?: { id?: string; name?: string } }>;
+    }>;
 };
+
+const serviceTypeLabels: Record<string, string> = {
+    general: 'خدمة عامة',
+    task: 'مهمة',
+    project: 'مشروع',
+    research: 'بحث',
+    explanation: 'شرح / استشارة تعليمية',
+};
+
+const siteTypeLabels: Record<string, string> = {
+    residential: 'سكني',
+    commercial: 'تجاري',
+    industrial: 'صناعي',
+    agricultural: 'زراعي / مزرعة',
+    medical: 'مرفق طبي',
+    educational: 'مرفق تعليمي',
+    other: 'أخرى',
+};
+
+const solarSystemLabels: Record<string, string> = {
+    'on-grid': 'متصل بالشبكة',
+    'off-grid': 'خارج الشبكة',
+    hybrid: 'هجين',
+    not_sure: 'غير متأكد',
+};
+
+const formatOption = (value: string | null | undefined, labels: Record<string, string>) =>
+    value ? labels[value] || value : 'غير محدد';
+
+const formatServiceType = (value?: string | null) => formatOption(value, serviceTypeLabels);
 
 const InfoCard: React.FC<{title: string, icon: React.ReactNode, children: React.ReactNode, onEdit?: () => void, isEditing?: boolean}> = ({title, icon, children, onEdit, isEditing}) => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700 w-full">
@@ -89,6 +113,16 @@ const ActivityItem: React.FC<{log: RequestActivityLog}> = ({ log }) => {
                     </div>
                      <time className="text-xs text-gray-400 flex-shrink-0 ms-4">{log.timestamp}</time>
                 </div>
+                {log.changes && <ul className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                    {Object.entries(log.changes).map(([field, change]) => {
+                        const fieldKey = `request.field.${field}`;
+                        const fieldLabel = t(fieldKey);
+                        return <li key={field}>
+                            <span className="font-semibold">{fieldLabel === fieldKey ? field : fieldLabel}:</span>{' '}
+                            <span>{change.from ?? '—'} → {change.to ?? '—'}</span>
+                        </li>;
+                    })}
+                </ul>}
                 {log.reason && <p className="mt-2 text-xs italic text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded-md">السبب: {log.reason}</p>}
             </div>
         </div>
@@ -109,8 +143,33 @@ const formatDateTime = (dateStr?: string | null): string => {
 };
 
 const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
-    const { request, users, linkedProject, navigateTo, isSaving = false, onUpdateRequest, onAddNote, onUpdateRequestStatus, onUpdateFulfillmentStatus, onUpdatePaymentStatus } = props;
+    const { request, users, linkedProject, isLinkedProjectLoading = false, navigateTo, isSaving = false, onUpdateRequest, onAddNote, onUpdateRequestStatus, onUpdateFulfillmentStatus, onUpdatePaymentStatus } = props;
     const { t, language } = useLanguage();
+    const projectData = linkedProject as ProjectTrackingData | null;
+    const projectProgress = typeof projectData?.progress === 'object' ? projectData.progress : null;
+    const projectTasks = projectData?.tasks ?? [];
+    const totalTasks = projectProgress?.totalTasks ?? projectData?.tasksCount ?? projectTasks.length;
+    const completedTasks = projectProgress?.completedTasks ?? projectData?.completedTasksCount ??
+        projectTasks.filter(task => task.status?.toUpperCase() === 'COMPLETED').length;
+    const progressPercentage = Math.min(100, Math.max(0,
+        typeof projectData?.progress === 'number'
+            ? projectData.progress
+            : projectProgress?.percentage ?? (totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0)
+    ));
+    const projectProviders = Array.from(new Map(
+        projectTasks
+            .flatMap(task => task.assignedEducators ?? task.assignments ?? [])
+            .filter(assignment => assignment.status?.toUpperCase() === 'ACCEPTED' && assignment.educator?.name)
+            .map(assignment => [assignment.educator!.id || assignment.educator!.name!, assignment.educator!.name!])
+    ).values());
+    const projectOwner = typeof projectData?.createdBy === 'object' ? projectData.createdBy?.name : projectData?.createdBy;
+    const projectResponsible = projectProviders.length > 0 ? projectProviders.join('، ') : projectOwner || '';
+    const projectStatus = projectData?.status
+        ? t(`status.${String(projectData.status).replace(/[-\s]/g, '_').toUpperCase()}`)
+        : t('requestDetail.project.notSpecified');
+    const translatedProjectStatus = projectData?.status && projectStatus.startsWith('status.')
+        ? String(projectData.status)
+        : projectStatus;
     
     const requester = (users || []).find(u => u.id === request.requesterId);
 
@@ -140,7 +199,6 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                 break;
             case 'financials':
                 currentData.budget = request.budget;
-                currentData.pricingType = request.pricingType;
                 break;
             case 'contact':
                 if (requester) {
@@ -154,8 +212,9 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                 currentData.finalAgreement = request.finalAgreement;
                 break;
              case 'key_info':
-                currentData.subject = request.subject;
-                currentData.educationLevel = request.educationLevel;
+                currentData.serviceType = request.serviceType || '';
+                currentData.projectSiteType = request.projectSiteType || '';
+                currentData.solarSystemType = request.solarSystemType || '';
                 currentData.expectedDeliveryDate = request.expectedDeliveryDate;
                 break;
         }
@@ -169,9 +228,10 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
 
     const handleSave = async () => {
         if (editingSection) {
-            const { title, description, budget, pricingType, finalAgreement, subject, educationLevel, expectedDeliveryDate } = formData;
+            const { title, description, budget, finalAgreement, serviceType, projectSiteType, solarSystemType, expectedDeliveryDate } = formData;
             const requestDetails: Partial<EducationalRequest> = {
-                title, description, budget: budget ? Number(budget) : undefined, pricingType, finalAgreement, subject, educationLevel, expectedDeliveryDate
+                title, description, budget: budget !== undefined ? (budget === '' ? null : Number(budget)) : undefined,
+                finalAgreement, serviceType, projectSiteType, solarSystemType, expectedDeliveryDate
             };
             const cleanRequestDetails = Object.fromEntries(Object.entries(requestDetails).filter(([, v]) => v !== undefined));
             if (Object.keys(cleanRequestDetails).length > 0) {
@@ -356,44 +416,57 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                                    ) : <p className="text-gray-600 dark:text-gray-300 whitespace-pre-line">{request.description}</p>}
                                </InfoCard>
                                <div className="grid md:grid-cols-2 gap-6">
-                                   <InfoCard title="المعلومات الأساسية" icon={<AcademicCapIcon className="w-6 h-6"/>} onEdit={() => handleEditClick('key_info')} isEditing={editingSection === 'key_info'}>
+                                   <InfoCard title="بيانات الخدمة" icon={<AcademicCapIcon className="w-6 h-6"/>} onEdit={() => handleEditClick('key_info')} isEditing={editingSection === 'key_info'}>
                                         {editingSection === 'key_info' ? (
                                             <div className="space-y-3 text-sm">
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">التخصص (المادة)</label>
-                                                    <select name="subject" value={formData.subject ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
-                                                        <option value="">اختر التخصص...</option>
-                                                        {PREDEFINED_MAJORS.map(m => (
-                                                            <option key={m} value={m}>{m}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">المستوى التعليمي</label>
-                                                    <select name="educationLevel" value={formData.educationLevel ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
-                                                        <option value="">اختر المستوى التعليمي...</option>
-                                                        <option value="Elementary">ابتدائي</option>
-                                                        <option value="Middle">متوسط</option>
-                                                        <option value="HighSchool">ثانوي</option>
-                                                        <option value="Diploma">دبلوم</option>
-                                                        <option value="Bachelor">بكالوريوس</option>
-                                                        <option value="Master">ماجستير</option>
-                                                        <option value="Doctorate">دكتوراه</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">تاريخ التسليم المتوقع</label>
-                                                    <input name="expectedDeliveryDate" type="date" value={formData.expectedDeliveryDate ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600"/>
-                                                </div>
+                                                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع الخدمة المطلوبة</label>
+                                                        <select name="serviceType" value={formData.serviceType ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
+                                                            <option value="">اختر نوع الخدمة...</option>
+                                                            <option value="general">خدمة عامة</option>
+                                                            <option value="task">مهمة</option>
+                                                            <option value="project">مشروع</option>
+                                                            <option value="research">بحث</option>
+                                                            <option value="explanation">شرح / استشارة تعليمية</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع موقع المشروع</label>
+                                                        <select name="projectSiteType" value={formData.projectSiteType ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
+                                                            <option value="">اختر نوع الموقع...</option>
+                                                            <option value="residential">سكني</option>
+                                                            <option value="commercial">تجاري</option>
+                                                            <option value="industrial">صناعي</option>
+                                                            <option value="agricultural">زراعي / مزرعة</option>
+                                                            <option value="medical">مرفق طبي</option>
+                                                            <option value="educational">مرفق تعليمي</option>
+                                                            <option value="other">أخرى</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع نظام الطاقة الشمسية</label>
+                                                        <select name="solarSystemType" value={formData.solarSystemType ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
+                                                            <option value="">اختر نوع النظام...</option>
+                                                            <option value="on-grid">متصل بالشبكة</option>
+                                                            <option value="off-grid">خارج الشبكة</option>
+                                                            <option value="hybrid">هجين</option>
+                                                            <option value="not_sure">غير متأكد</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">موعد التنفيذ أو التسليم المتوقع</label>
+                                                        <input name="expectedDeliveryDate" type="date" value={formData.expectedDeliveryDate ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600"/>
+                                                    </div>
                                                 {renderEditingControls()}
                                             </div>
                                         ) : (
                                             <div className="space-y-2 text-sm">
-                                                <div className="flex justify-between"><span>التخصص / المادة:</span> <strong>{request.subject || request.academicMajor || 'غير محدد'}</strong></div>
-                                                <div className="flex justify-between"><span>المستوى التعليمي:</span> <strong>{formatEducationLevel(request.educationLevel)}</strong></div>
-                                                <div className="flex justify-between"><span>تاريخ المراجعة:</span> <strong>{request.reviewedAt || 'غير مراجع'}</strong></div>
-                                                <div className="flex justify-between"><span>تاريخ الإنشاء:</span> <strong>{formatDateTime(request.createdAt)}</strong></div>
-                                                <div className="flex justify-between"><span>التسليم المتوقع:</span> <strong>{request.expectedDeliveryDate || 'غير محدد'}</strong></div>
+                                                <div className="flex justify-between"><span>نوع الخدمة المطلوبة:</span> <strong>{formatServiceType(request.serviceType)}</strong></div>
+                                                <div className="flex justify-between"><span>نوع موقع المشروع:</span> <strong>{formatOption(request.projectSiteType, siteTypeLabels)}</strong></div>
+                                                <div className="flex justify-between"><span>نوع نظام الطاقة الشمسية:</span> <strong>{formatOption(request.solarSystemType, solarSystemLabels)}</strong></div>
+                                                <div className="flex justify-between"><span>تاريخ مراجعة الطلب:</span> <strong>{request.reviewedAt ? formatDateTime(request.reviewedAt) : 'غير مراجع'}</strong></div>
+                                                <div className="flex justify-between"><span>تاريخ إرسال الطلب:</span> <strong>{formatDateTime(request.createdAt)}</strong></div>
+                                                <div className="flex justify-between"><span>موعد التنفيذ أو التسليم المتوقع:</span> <strong>{request.expectedDeliveryDate || 'غير محدد'}</strong></div>
                                             </div>
                                         )}
                                    </InfoCard>
@@ -404,19 +477,11 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                                                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">الميزانية (ريال)</label>
                                                  <input name="budget" placeholder="الميزانية" type="number" value={formData.budget ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600"/>
                                              </div>
-                                             <div>
-                                                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع التسعير</label>
-                                                 <select name="pricingType" value={formData.pricingType ?? PricingType.FIXED} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
-                                                     <option value={PricingType.FIXED}>مبلغ ثابت</option>
-                                                     <option value={PricingType.HOURLY}>بالساعة</option>
-                                                 </select>
-                                             </div>
                                              {renderEditingControls()}
                                          </div>
                                      ) : (
                                         <div className="space-y-2 text-sm">
                                             <div className="flex justify-between"><span>الميزانية:</span> <strong className="text-green-600">{request.budget?.toLocaleString() || 'غير محدد'} ريال</strong></div>
-                                            <div className="flex justify-between"><span>نوع التسعير:</span> <strong>{request.pricingType === PricingType.HOURLY ? 'بالساعة' : 'مبلغ ثابت'}</strong></div>
                                         </div>
                                      )}
                                    </InfoCard>
@@ -446,7 +511,9 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                             <div className="space-y-4">
                                {request.activityLog.map(log => <ActivityItem key={log.id} log={log} />)}
                                <form onSubmit={handleAddNote} className="flex items-center gap-3 mt-6">
-                                   <Avatar src="https://i.pravatar.cc/100?u=admin" name="Admin" size={40} />
+                                   <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300" aria-label="المستخدم">
+                                       <UserIcon className="w-5 h-5" />
+                                   </div>
                                    <div className="relative flex-grow">
                                         <input ref={noteInputRef} type="text" value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="أضف ملاحظة جديدة..." className="w-full bg-white border border-gray-300 rounded-lg p-2.5 ps-4 text-sm dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-brand-primary"/>
                                         <button type="submit" disabled={!noteContent.trim()} className="absolute top-1/2 -translate-y-1/2 start-2 p-1.5 bg-brand-primary text-white rounded-md hover:bg-brand-primary/90 disabled:bg-slate-400"><SendIcon className="w-4 h-4"/></button>
@@ -462,19 +529,66 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                         </div>
 
                         {activeTab === 'project' && (
-                           <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700">
+                           <div className="p-5 sm:p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700">
                                {linkedProject ? (
-                                   <div>
-                                       <h4 className="font-bold text-lg mb-2">المشروع المرتبط</h4>
-                                       <p className="font-semibold text-brand-primary dark:text-brand-accent">{linkedProject.title}</p>
-                                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{linkedProject.status}</p>
-                                       <button onClick={() => navigateTo('projectDetail', linkedProject.id)} className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90">عرض تفاصيل المشروع</button>
+                                   <div className="space-y-5">
+                                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                           <div>
+                                               <h4 className="font-bold text-lg mb-1">{t('requestDetail.project.title')}</h4>
+                                               <p className="font-semibold text-brand-primary dark:text-brand-accent">{linkedProject.title}</p>
+                                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                   {t('requestDetail.project.number')}: {projectData?.projectNumber ? `#${projectData.projectNumber}` : t('requestDetail.project.notSpecified')}
+                                               </p>
+                                           </div>
+                                           <span className="inline-flex self-start px-3 py-1 text-sm font-semibold rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                                               {translatedProjectStatus}
+                                           </span>
+                                       </div>
+
+                                       {isLinkedProjectLoading ? (
+                                           <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500 dark:text-gray-400" role="status" aria-live="polite">
+                                               <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-200 border-b-brand-primary" />
+                                               <span>{t('requestDetail.project.loading')}</span>
+                                           </div>
+                                       ) : (
+                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-start">
+                                           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">{t('requestDetail.project.progress')}</p>
+                                               <p className="font-bold mt-1">{progressPercentage}%</p>
+                                               <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-600 mt-2">
+                                                   <div className="h-2 rounded-full bg-brand-primary" style={{ width: `${progressPercentage}%` }} />
+                                               </div>
+                                           </div>
+                                           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">{t('requestDetail.project.tasks')}</p>
+                                               <p className="font-bold mt-1">{t('requestDetail.project.completedTasks', { completed: completedTasks, total: totalTasks })}</p>
+                                           </div>
+                                           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">{t('requestDetail.project.responsible')}</p>
+                                               <p className="font-semibold mt-1">{projectResponsible || t('requestDetail.project.unassigned')}</p>
+                                           </div>
+                                           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">{t('requestDetail.project.startDate')}</p>
+                                               <p className="font-semibold mt-1">{projectData?.startDate ? formatDateTime(projectData.startDate) : t('requestDetail.project.notSpecified')}</p>
+                                           </div>
+                                           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 sm:col-span-2 lg:col-span-4">
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">{t('requestDetail.project.deadline')}</p>
+                                               <p className="font-semibold mt-1">{projectData?.deadline ? formatDateTime(projectData.deadline) : t('requestDetail.project.notSpecified')}</p>
+                                           </div>
+                                       </div>
+                                       )}
+
+                                       <div className="text-start">
+                                           <button onClick={() => navigateTo('projectDetail', linkedProject.id)} className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90">
+                                               {t('viewDetails')}
+                                           </button>
+                                       </div>
                                    </div>
                                ) : (
                                    <div>
-                                        <h4 className="font-bold text-lg mb-2">لا يوجد مشروع مرتبط</h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">يمكنك إنشاء مشروع جديد بناء على هذا الطلب.</p>
-                                        <button onClick={() => navigateTo('createProject', request.id)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">إنشاء مشروع من هذا الطلب</button>
+                                        <h4 className="font-bold text-lg mb-2">{t('requestDetail.project.noProject')}</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('requestDetail.project.createHint')}</p>
+                                        <button onClick={() => navigateTo('createProject', request.id)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">{t('requestDetail.project.createFromRequest')}</button>
                                    </div>
                                )}
                            </div>

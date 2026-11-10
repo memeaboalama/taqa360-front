@@ -35,6 +35,7 @@ import InvoiceDetailView from './views/InvoiceDetailView';
 import CreateUserContainer from './views/CreateUserContainer';
 import EditUserContainer from './views/EditUserContainer';
 import { useLanguage } from '../../app/providers/LanguageProvider';
+import { getProjectTabForView } from './constants/projectSections';
 
 interface AdminAppProps {
     onLogout: () => void;
@@ -73,8 +74,14 @@ const AdminApp: React.FC<AdminAppProps> = ({ onLogout }) => {
         const adminProps = { navigateTo };
         switch(currentView) {
             // case 'dashboard': return <DashboardView navigateTo={navigateTo} />;
-            case 'dashboard': return <ProjectsView {...adminProps} />;
-            case 'projects': return <ProjectsView {...adminProps} />;
+            case 'dashboard':
+            case 'projects':
+                return <ProjectsView {...adminProps} activeTab={getProjectTabForView(currentView)} />;
+            case 'projectsWithOffers':
+            case 'projectsPending':
+            case 'projectsInProgress':
+            case 'projectsCompleted':
+                return <ProjectsView {...adminProps} activeTab={getProjectTabForView(currentView)} />;
             case 'projectDetail': return <ProjectDetailContainer
                 {...adminProps}
                 projectId={viewContext}

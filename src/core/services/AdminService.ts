@@ -28,6 +28,7 @@ export const adminService = {
   acceptEducatorAccount: (id: string) => FeatureAdminService.acceptEducatorAccount(id),
   rejectEducatorAccount: (id: string, rejection_reason: string) => FeatureAdminService.rejectEducatorAccount(id, rejection_reason),
   approveEducatorIdentity: (id: string) => FeatureAdminService.approveEducatorIdentity(id),
+  sendEducatorVerificationReminder: (id: string) => FeatureAdminService.sendEducatorVerificationReminder(id),
   rejectEducatorIdentity: (id: string, rejection_reason: string) => FeatureAdminService.rejectEducatorIdentity(id, rejection_reason),
   // Suspension controls
   suspendEducator: (id: string, suspension_reason: string) => FeatureAdminService.suspendEducator(id, suspension_reason),
@@ -36,6 +37,7 @@ export const adminService = {
   rejectAcademicMajor: (educatorId: string, majorId: string, rejection_reason: string) => FeatureAdminService.rejectAcademicMajor(educatorId, majorId, rejection_reason),
   deleteEducator: (id: string) => FeatureAdminService.deleteEducator(id),
   inviteEducator: (email: string) => FeatureAdminService.inviteEducator(email),
+  getEducatorInvitations: () => FeatureAdminService.getEducatorInvitations(),
   completeRegistration: (data: { token: string; name: string; phone: string; password: string; password_confirmation: string }) => FeatureAdminService.completeRegistration(data),
 
   // Users
@@ -54,6 +56,7 @@ export const adminService = {
 
   // Projects (admin endpoints)
   getProjects: (params?: any) => FeatureAdminService.getProjects(params),
+  getProjectTabCounts: (params?: any) => FeatureAdminService.getProjectTabCounts(params),
   getProject: (id: string) => FeatureAdminService.getProject(id),
   createProject: (projectData: any) => FeatureAdminService.createProject(projectData),
   updateProject: (id: string, data: any) => FeatureAdminService.updateProject(id, data),

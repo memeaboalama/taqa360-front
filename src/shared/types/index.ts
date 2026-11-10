@@ -23,6 +23,10 @@ export type EducatorViewType =
 export type ViewType =
   'dashboard' |
   'projects' |
+  'projectsWithOffers' |
+  'projectsPending' |
+  'projectsInProgress' |
+  'projectsCompleted' |
   'projectDetail' |
   'createProject' |
   'createUser' |
@@ -213,6 +217,7 @@ export interface AcademicMajor {
     graduationYear: string | null;
     degree: string | null;
     documentUrl?: string | null;
+    documentMimeType?: string | null;
     verificationStatus: VerificationStatus | string;
     rejectionReason?: string | null;
 }
@@ -447,6 +452,7 @@ export interface ProjectActivityLog {
 
 export interface Project {
   id: string;
+  projectNumber?: number | string | null;
   title: string;
   description: string;
   status: ProjectStatus;
@@ -457,7 +463,15 @@ export interface Project {
   creationType: ProjectCreationType;
   createdBy: string;
   createdAt: string;
+  startDate?: string | null;
   deadline: string | null;
+  tasksCount?: number;
+  completedTasksCount?: number;
+  progress?: number | {
+    percentage?: number;
+    completedTasks?: number;
+    totalTasks?: number;
+  };
   educationalRequestId: string | null;
   activityLog: ProjectActivityLog[];
   requesterName?: string;
@@ -535,6 +549,7 @@ export interface SupportTicket {
 
 export interface User {
     id: string;
+    databaseId?: string;
     name: string;
     email: string;
     phone: string;
@@ -548,6 +563,10 @@ export interface User {
 export interface EducationalRequest {
     id: string;
     code?: string;
+    requesterName?: string;
+    serviceType?: string | null;
+    projectSiteType?: string | null;
+    solarSystemType?: string | null;
     title: string;
     description: string;
     subject: string;
@@ -641,6 +660,7 @@ export interface RequestActivityLog {
     actorAvatar: string;
     timestamp: string;
     reason?: string;
+    changes?: Record<string, { from: string | null; to: string | null }>;
 }
 
 export type AdminActivityIcon = 'application' | 'invoice' | 'project' | 'user' | 'request';
@@ -680,6 +700,7 @@ export type UserRole = 'admin' | 'educator';
 export interface LoginCredentials {
     email: string;
     password: string;
+    rememberMe?: boolean;
 }
 
 export interface RegisterData {
@@ -708,7 +729,7 @@ export interface AuthUser {
 export interface AuthTokens {
     accessToken: string;
     refreshToken?: string;
-    expiresAt: string;
+    expiresAt: number;
 }
 
 export interface AuthState {
@@ -722,7 +743,7 @@ export interface AuthState {
 export interface LoginResponse {
     user: AuthUser;
     tokens: AuthTokens;
-    status: AuthStatus;
+    status?: AuthStatus;
 }
 
 export interface RefreshTokenResponse {

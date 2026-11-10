@@ -4,6 +4,7 @@ import React from 'react';
 import { ViewType } from '../../../shared/types';
 import { DashboardIcon, ProjectsIcon, PlusCircleIcon, UserCheckIcon, MenuAlt4Icon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import { isProjectAreaView } from '../constants/projectSections';
 
 interface AdminBottomNavBarProps {
     currentView: ViewType;
@@ -55,7 +56,7 @@ const AdminBottomNavBar: React.FC<AdminBottomNavBarProps> = ({ currentView, navi
                  <NavButton
                     icon={<ProjectsIcon className="w-6 h-6"/>}
                     label={t('projects')}
-                    isActive={['projects', 'projectDetail'].includes(currentView as ViewType)}
+                    isActive={isProjectAreaView(currentView)}
                     onClick={() => navigateTo('projects')}
                 />
                  <NavButton

@@ -329,13 +329,15 @@ const RequestDropdown: React.FC<{
     const filtered = useMemo(() => {
         const q = localQuery.trim().toLowerCase();
         if (!q) return options;
-        return options.filter(o => o.title.toLowerCase().includes(q));
+        return options.filter(o => [o.code, o.requesterName, o.title].some(value => value?.toLowerCase().includes(q)));
     }, [options, localQuery]);
 
     return (
         <div className="relative" ref={containerRef}>
             <button type="button" className="flex items-center justify-between w-full p-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-right focus:ring-2 focus:ring-brand-primary" onClick={() => setIsOpen(o => !o)}>
-                <span className="text-gray-900 dark:text-white truncate">{selected ? selected.title : t('createProject.selectRequestPlaceholder')}</span>
+                <span className="text-gray-900 dark:text-white truncate">
+                    {selected ? [selected.code, selected.requesterName, selected.title].filter(Boolean).join(' - ') : t('createProject.selectRequestPlaceholder')}
+                </span>
                 <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
@@ -356,7 +358,11 @@ const RequestDropdown: React.FC<{
                         {filtered.map(opt => (
                             <li key={opt.id} className="p-2.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onClick={() => { onChange(opt.id); setIsOpen(false); }}>
                                 <div className="font-medium truncate">{opt.title}</div>
-                                {opt.code && <div className="text-xs text-gray-500">{opt.code}</div>}
+                                {(opt.code || opt.requesterName) && (
+                                    <div className="text-xs text-gray-500">
+                                        {[opt.code, opt.requesterName].filter(Boolean).join(' - ')}
+                                    </div>
+                                )}
                             </li>
                         ))}
                         {!isLoading && filtered.length === 0 && (

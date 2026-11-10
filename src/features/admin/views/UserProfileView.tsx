@@ -32,6 +32,8 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ navigateTo, userId })
     const user = rawUser && typeof rawUser === 'object' && 'name' in rawUser
         ? rawUser
         : (rawUser as any)?.data ?? (rawUser as any)?.user ?? null;
+    const userMatchesRequestedId = user && [user.id, user.databaseId]
+        .some((id) => id != null && String(id) === String(userId));
 
     const [statusAction, setStatusAction] = useState<{ status: UserStatus } | null>(null);
     const [deleteAction, setDeleteAction] = useState(false);
@@ -81,9 +83,18 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ navigateTo, userId })
         </div>
     );
 
-    if (!user) return (
+    if (!user || !userMatchesRequestedId) return (
         <div className="flex items-center justify-center min-h-[60vh]">
-            <p className="text-lg text-red-500">{t('common.viewNotFound')}</p>
+            <div className="text-center">
+                <p className="text-lg text-red-500">
+                    {user && !userMatchesRequestedId ? t('userDetail.accountMismatch') : t('common.viewNotFound')}
+                </p>
+                {user && !userMatchesRequestedId && (
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        {t('userDetail.accountMismatchDetails', { requestedId: userId, returnedEmail: user.email })}
+                    </p>
+                )}
+            </div>
         </div>
     );
 
@@ -149,6 +160,9 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ navigateTo, userId })
                         <Avatar src={user.avatarUrl} name={user.name} size={100} className="rounded-full border-4 border-slate-200 dark:border-slate-700 shrink-0" />
                         <div className="flex-1">
                             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{user.name}</h1>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {t('userDetail.accountId')}: <span dir="ltr" className="font-mono">{user.id}</span>
+                            </p>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusClass(user.status)}`}>
                                     {t(`status.${user.status}`) !== `status.${user.status}` ? t(`status.${user.status}`) : t(`status.${currentStatus}`)}

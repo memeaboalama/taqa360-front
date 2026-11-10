@@ -19,6 +19,8 @@ const EditUserContainer: React.FC<Props> = ({ navigateTo, userId }) => {
   const user = rawUser && typeof rawUser === 'object' && 'name' in rawUser
     ? rawUser
     : (rawUser as any)?.data ?? (rawUser as any)?.user ?? null;
+  const userMatchesRequestedId = user && [user.id, user.databaseId]
+    .some((id) => id != null && String(id) === String(userId));
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
@@ -27,14 +29,24 @@ const EditUserContainer: React.FC<Props> = ({ navigateTo, userId }) => {
     </div>
   );
 
-  if (isError || !user) return (
+  if (isError || !user || !userMatchesRequestedId) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <p className="text-lg text-red-500">{t('common.viewNotFound')}</p>
+      <div className="text-center">
+        <p className="text-lg text-red-500">
+          {user && !userMatchesRequestedId ? t('editUser.accountMismatch') : t('common.viewNotFound')}
+        </p>
+        {user && !userMatchesRequestedId && (
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            {t('editUser.accountMismatchDetails', { requestedId: userId, returnedEmail: user.email })}
+          </p>
+        )}
+      </div>
     </div>
   );
 
   return (
     <EditUserView
+      key={user.id}
       navigateTo={navigateTo}
       user={user}
       isPending={updateUser.isPending}

@@ -165,7 +165,7 @@ export function usePaginatedQuery<TData = any>(
     ...(typeof config?.staleTime !== 'undefined' ? { staleTime: config.staleTime } : {}),
     ...(typeof config?.cacheTime !== 'undefined' ? { cacheTime: config.cacheTime } : {}),
     ...(typeof config?.refetchOnWindowFocus !== 'undefined' ? { refetchOnWindowFocus: config.refetchOnWindowFocus } : {}),
-    ...(typeof config?.keepPreviousData !== 'undefined' ? { keepPreviousData: config.keepPreviousData } : {}),
+    ...(config?.keepPreviousData ? { placeholderData: (previousData: PaginatedResponse<TData> | undefined) => previousData } : {}),
     onError: (error) => {
       errorManager.handleError(error);
       config?.onError?.(error as AppError);

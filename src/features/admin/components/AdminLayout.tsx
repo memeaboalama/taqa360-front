@@ -41,7 +41,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentView, naviga
     const handleInvite = (email: string) => {
         inviteEducator(email, {
             onSuccess: () => {
-                addToast(t('toasts.invitationSent'));
+                addToast(t('toasts.invitationSent', { email: email.trim() }));
                 setInviteModalOpen(false);
             },
             onError: (error: any) => {

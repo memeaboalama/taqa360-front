@@ -21,6 +21,7 @@ import {
 } from '../services/EducatorService';
 import { QueryParams } from '../api/types';
 import { useCallback } from 'react';
+import { ProjectStatus } from '../../shared/types';
 
 // Profile Management Hooks
 export function useEducatorProfile() {
@@ -709,11 +710,25 @@ export function useEducatorUpdateTaskStatus() {
   const queryClient = useQueryClient();
   return useBaseMutation(
     ['educator', 'task', 'status', 'update'],
-    ({ taskId, status }: { taskId: string; status: 'PENDING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' }) => status === 'COMPLETED' ? educatorService.completeTask(taskId) : educatorService.updateTaskStatus(taskId, status),
+    ({ taskId, status }: { taskId: string; status: ProjectStatus.IN_PROGRESS | ProjectStatus.COMPLETED }) => status === ProjectStatus.COMPLETED ? educatorService.completeTask(taskId) : educatorService.startTask(taskId),
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateAll(queryClient, 'educator-tasks');
         QueryKeyFactory.invalidateAll(queryClient, 'educator-projects');
+        QueryKeyFactory.invalidateDetail(queryClient, 'educator-task', variables.taskId);
+      }
+    }
+  );
+}
+
+export function useCreateEducatorTaskNote() {
+  const queryClient = useQueryClient();
+  return useBaseMutation(
+    ['educator', 'task', 'note', 'create'],
+    ({ taskId, content }: { taskId: string; content: string }) => educatorService.addTaskNote(taskId, content),
+    {
+      onSuccess: (data, variables) => {
+        QueryKeyFactory.invalidateAll(queryClient, 'educator-tasks');
         QueryKeyFactory.invalidateDetail(queryClient, 'educator-task', variables.taskId);
       }
     }

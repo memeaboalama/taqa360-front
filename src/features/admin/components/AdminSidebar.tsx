@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { DashboardIcon, BookOpenIcon, SettingsIcon, UserCheckIcon, ProjectsIcon, ChevronDownIcon, UserPlusIcon, UserGroupIcon, UserMinusIcon, UsersIcon, ArrowLeftIcon, ArrowRightIcon, AcademicCapIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, SparklesIcon, BriefcaseIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
+import React, { useEffect, useState } from 'react';
+import { DashboardIcon, SettingsIcon, UserCheckIcon, ProjectsIcon, ChevronDownIcon, UserPlusIcon, UserGroupIcon, UserMinusIcon, UsersIcon, ArrowLeftIcon, ArrowRightIcon, AcademicCapIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, SparklesIcon, BriefcaseIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
 import BrandLogo from '../../../shared/components/BrandLogo';
 import LanguageSwitcher from '../../../shared/components/LanguageSwitcher';
 import { ViewType } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import { isProjectAreaView, PROJECT_SIDEBAR_SECTIONS } from '../constants/projectSections';
+import { useAdminProjectTabCounts } from '../../../core/hooks/useAdminQueries';
 
 interface AdminSidebarProps {
   currentView: ViewType;
@@ -20,7 +22,8 @@ const NavItem: React.FC<{
   onClick: () => void;
   isSubItem?: boolean;
   isCollapsed: boolean;
-}> = ({ icon, label, isActive, onClick, isSubItem = false, isCollapsed }) => {
+  count?: number;
+}> = ({ icon, label, isActive, onClick, isSubItem = false, isCollapsed, count }) => {
   return (
     <li title={isCollapsed ? label : undefined}>
       <button
@@ -33,6 +36,11 @@ const NavItem: React.FC<{
       >
         {icon}
         <span className={`ms-3 font-semibold transition-opacity duration-200 ${isCollapsed ? 'lg:opacity-0 lg:w-0 lg:hidden' : 'opacity-100'}`}>{label}</span>
+        {!isCollapsed && count !== undefined && (
+          <span className={`ms-auto min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+            {count}
+          </span>
+        )}
       </button>
     </li>
   );
@@ -47,6 +55,10 @@ const AccordionMenu: React.FC<{
     children: React.ReactNode;
 }> = ({ icon, label, isActive, children, isCollapsed }) => {
     const [isOpen, setIsOpen] = useState(isActive);
+
+    useEffect(() => {
+      if (isActive) setIsOpen(true);
+    }, [isActive]);
     
     if (isCollapsed) {
       return (
@@ -83,7 +95,8 @@ const AccordionMenu: React.FC<{
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, isCollapsed, setCollapsed, onLogout }) => {
   const { t, language, toggleLanguage } = useLanguage();
-  const isProjectsActive = ['projects', 'projectDetail', 'createProject', 'bidDetail', 'taskDetail'].includes(currentView);
+  const projectCountsQuery = useAdminProjectTabCounts();
+  const projectCounts = projectCountsQuery.data?.counts ?? {};
   const isRequestsActive = ['educationalRequests', 'requestDetail'].includes(currentView);
   const isEducatorsActive = ['educators', 'educatorDetail', 'educatorApplications', 'educatorApplicationDetail', 'rejectedEducators'].includes(currentView);
   const isUsersActive = ['users', 'userDetail'].includes(currentView);
@@ -108,13 +121,28 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, is
             onClick={() => navigateTo('dashboard')}
             isCollapsed={isCollapsed}
           /> */}
-          <NavItem
-            icon={<BookOpenIcon className="w-6 h-6" />}
-            label={t('projects')}
-            isActive={isProjectsActive}
-            onClick={() => navigateTo('projects')}
+          <AccordionMenu
+            icon={<ProjectsIcon className="w-6 h-6" />}
+            label={t('projectsView.title')}
+            isActive={isProjectAreaView(currentView)}
             isCollapsed={isCollapsed}
-          />
+          >
+            {PROJECT_SIDEBAR_SECTIONS.map((section) => {
+              const SectionIcon = section.icon;
+              return (
+                <NavItem
+                  key={section.view}
+                  icon={<SectionIcon className="w-5 h-5" />}
+                  label={t(section.labelKey)}
+                  isActive={currentView === section.view}
+                  onClick={() => navigateTo(section.view)}
+                  isSubItem
+                  isCollapsed={isCollapsed}
+                  count={projectCounts[section.key]}
+                />
+              );
+            })}
+          </AccordionMenu>
           <NavItem
             icon={<UserCheckIcon className="w-6 h-6" />}
             label={t('requests')}

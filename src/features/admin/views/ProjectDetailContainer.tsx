@@ -386,15 +386,24 @@ const ProjectDetailContainer: React.FC<Props> = ({ projectId, navigateTo }) => {
         }
       }}
       isSavingProject={updateProject.isPending}
+      isTogglingPublication={publishProject.isPending || unpublishProject.isPending}
       onUpdateProjectStatus={async (pid, newStatus: ProjectStatus, reason: string) => {
         await changeProjectStatus.mutateAsync({ projectId: pid, status: newStatus.toString().toLowerCase(), reason });
         addToast(`تم تغيير حالة المشروع بنجاح إلى "${newStatus}"`, 'success');
       }}
-      onToggleProjectPublication={(pid, reason) => {
-        if (project.isPublished) {
-          return unpublishProject.mutateAsync({ id: pid, reason: reason || '' });
-        } else {
-          return publishProject.mutateAsync(pid);
+      onToggleProjectPublication={async (pid, reason) => {
+        try {
+          if (project.isPublished) {
+            await unpublishProject.mutateAsync({ id: pid, reason: reason || '' });
+            addToast && addToast('تم إيقاف استقبال العروض الجديدة مع الاحتفاظ بالعروض السابقة.', 'success');
+          } else {
+            await publishProject.mutateAsync(pid);
+            addToast && addToast('تم نشر المشروع لاستقبال العروض.', 'success');
+          }
+          await projectQuery.refetch();
+        } catch (e: any) {
+          addToast && addToast(e?.message || 'تعذر تحديث حالة استقبال العروض.', 'error');
+          throw e;
         }
       }}
     />

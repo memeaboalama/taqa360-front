@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../../../core/services/AdminService';
 import LoadingScreen from '../../../shared/components/LoadingScreen';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
-import { Bid, Educator, Project, Task, BidStatus, Attachment, PricedBidTask, ViewType, ExperienceLevel, PaymentInfo } from '../../../shared/types';
+import { Bid, Educator, Project, Task, BidStatus, Attachment, PricedBidTask, ViewType, PaymentInfo } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 
 interface BidDetailContainerProps {
@@ -18,7 +18,8 @@ const mapAttachment = (a: any): Attachment => ({
   id: String(a.id ?? a.attachment_id ?? a.file_id ?? `${Math.random()}`),
   name: a.name || a.original_name || a.title || 'Attachment',
   url: a.url,
-  size: typeof a.size === 'number' ? a.size : Number(a.size || 0)
+  size: typeof a.size === 'number' ? a.size : Number(a.size || 0),
+  type: String(a.type || ''),
 });
 
 const ensureArray = <T,>(value: T[] | null | undefined): T[] => (Array.isArray(value) ? value.filter(Boolean) : []);
@@ -41,7 +42,7 @@ const DEFAULT_EDUCATOR_PROFILE = {
   experienceYears: 0,
   employmentStatus: null,
   profileCompletion: 0,
-  experienceLevel: ExperienceLevel.INTERMEDIATE,
+  experienceLevel: null,
   idType: null,
   idNumber: '',
   idDocumentUrl: null,
@@ -74,7 +75,15 @@ const BidDetailContainer: React.FC<BidDetailContainerProps> = ({ bidId, navigate
       avatarUrl: educatorNode.avatarUrl || '',
       registrationDate: educatorNode.registrationDate || '',
       status: educatorNode.status || 'ACTIVE',
-      profile: { ...DEFAULT_EDUCATOR_PROFILE, ...(educatorNode.profile || {}) },
+      profile: {
+        ...DEFAULT_EDUCATOR_PROFILE,
+        ...(educatorNode.basicInfo || {}),
+        ...(educatorNode.profile || {}),
+        experienceLevel: educatorNode.profile?.experienceLevel
+          ?? educatorNode.basicInfo?.experienceLevel
+          ?? educatorNode.experienceLevel
+          ?? null,
+      },
       rating: Number(educatorNode.rating || 0),
       discipline: educatorNode.discipline || 'general',
       country: educatorNode.country || 'sa',

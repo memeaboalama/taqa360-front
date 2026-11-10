@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SendIcon } from '../../../../shared/components/Icons';
 import { useLanguage } from '../../../../app/providers/LanguageProvider';
 
@@ -13,16 +13,24 @@ interface InviteEducatorModalProps {
 const InviteEducatorModal: React.FC<InviteEducatorModalProps> = ({ isOpen, onClose, onInvite, isLoading }) => {
     const { t, language } = useLanguage();
     const [email, setEmail] = useState('');
+    const [isConfirming, setIsConfirming] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setEmail('');
+            setIsConfirming(false);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email) {
-            alert(t('common.fillRequiredFields'));
+        if (!isConfirming) {
+            setIsConfirming(true);
             return;
         }
-        onInvite(email);
+        onInvite(email.trim());
     };
 
     const handleClose = () => {
@@ -50,16 +58,26 @@ const InviteEducatorModal: React.FC<InviteEducatorModalProps> = ({ isOpen, onClo
                             id="invite-email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
-                            disabled={isLoading}
+                            disabled={isLoading || isConfirming}
                             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary block w-full p-2.5 dark:bg-gray-700/50 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="name@example.com" required />
+                        {isConfirming && (
+                            <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+                                {t('modals.confirmInvitation', { email: email.trim() })}
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-end space-x-4 rtl:space-x-reverse pt-4">
+                        {isConfirming && (
+                            <button type="button" onClick={() => setIsConfirming(false)} disabled={isLoading} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                {t('modals.editInvitationEmail')}
+                            </button>
+                        )}
                         <button type="button" onClick={handleClose} disabled={isLoading} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                             {t('cancel')}
                         </button>
-                        <button type="submit" disabled={isLoading} className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 focus:ring-4 focus:ring-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button type="submit" disabled={isLoading || !email.trim()} className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 focus:ring-4 focus:ring-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed">
                             {isLoading ? (
                                 <svg className="w-4 h-4 me-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -68,7 +86,7 @@ const InviteEducatorModal: React.FC<InviteEducatorModalProps> = ({ isOpen, onClo
                             ) : (
                                 <SendIcon className="w-4 h-4 me-2" />
                             )}
-                            {isLoading ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : t('modals.sendInvitation')}
+                            {isLoading ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : isConfirming ? t('modals.confirmAndSendInvitation') : t('modals.sendInvitation')}
                         </button>
                     </div>
                 </form>

@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { AuthUser, LoginResponse, PaginatedResponse, ApiResponse } from '../../shared/types';
-import { env } from '../config/env';
+import { API_BASE_URL } from './config';
 
 interface InternalAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
@@ -14,7 +14,7 @@ class ApiClient {
 
   private constructor() {
     this.axiosInstance = axios.create({
-      baseURL: env.API_BASE_URL,
+      baseURL: API_BASE_URL,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -35,7 +35,7 @@ class ApiClient {
   private setupInterceptors() {
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        const accessToken = localStorage.getItem(env.TOKEN_STORAGE_KEY);
+        const accessToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;
         }
@@ -77,14 +77,14 @@ class ApiClient {
           this.isRefreshing = true;
 
           try {
-            const refreshToken = localStorage.getItem('refresh_token');
+            const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
             if (!refreshToken) {
               this.clearAuthTokens();
               return Promise.reject(error);
             }
 
             const refreshResponse = await axios.post<LoginResponse>(
-              `${env.API_BASE_URL}/auth/refresh`,
+              `${API_BASE_URL}/auth/refresh`,
               { refreshToken }
             );
 
@@ -124,13 +124,16 @@ class ApiClient {
   }
 
   public setAuthTokens(accessToken: string, refreshToken: string) {
-    localStorage.setItem(env.TOKEN_STORAGE_KEY, accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
+    const storage = localStorage.getItem('auth-remember-me') === 'false' ? sessionStorage : localStorage;
+    storage.setItem('auth_token', accessToken);
+    storage.setItem('refresh_token', refreshToken);
   }
 
   public clearAuthTokens() {
-    localStorage.removeItem(env.TOKEN_STORAGE_KEY);
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('refresh_token');
     // Optionally, redirect to login page or trigger a global logout event
   }
 

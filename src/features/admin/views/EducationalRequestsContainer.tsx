@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import EducationalRequestsView from './EducationalRequestsView';
 import { ViewType, EducationalRequest, EducationalRequestStatus, PaymentStatus, FulfillmentStatus, PricingType, User, Project } from '../../../shared/types';
 import { useAdminEducationalRequests } from '../../../core/hooks/useAdminQueries';
+import { QueryParams } from '../../../core/api/types';
 
 interface Props {
   navigateTo: (view: ViewType, id?: any) => void;
@@ -30,11 +31,25 @@ const EducationalRequestsContainer: React.FC<Props> = ({ navigateTo }) => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [paymentStatus, setPaymentStatus] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
 
-  const apiParams: any = { paginated: "true" as const, per_page: 10, sort_by: 'created_at' };
-  if (search) apiParams.search = search;
-  if (status !== 'all') apiParams.status = status;
-  if (paymentStatus !== 'all') apiParams.paymentStatus = paymentStatus;
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
+
+  const apiParams = useMemo<QueryParams & { status?: string; paymentStatus?: string }>(() => {
+    const params: QueryParams & { status?: string; paymentStatus?: string } = {
+      per_page: perPage,
+      page: currentPage,
+    };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (status !== 'all') params.status = status === 'ACCEPTED' ? 'approved' : status.toLowerCase();
+    if (paymentStatus !== 'all') params.paymentStatus = paymentStatus.toLowerCase();
+    return params;
+  }, [currentPage, debouncedSearch, paymentStatus, perPage, status]);
 
   const reqQuery = useAdminEducationalRequests(apiParams);
 
@@ -64,13 +79,6 @@ const EducationalRequestsContainer: React.FC<Props> = ({ navigateTo }) => {
       project: r.project ? { id: r.project.id, title: r.project.title } : null,
     }));
 
-    requests.sort((a, b) => {
-      const idA = Number(a.id) || 0;
-      const idB = Number(b.id) || 0;
-      if (idA && idB) return idB - idA;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
     const users: User[] = list.map((r: any, i: number) => ({
       id: r.requesterId || r.requester?.id || r.requesterName || `u-${i}`,
       name: r.requesterName || r.requester?.name || 'Unknown',
@@ -94,10 +102,29 @@ const EducationalRequestsContainer: React.FC<Props> = ({ navigateTo }) => {
       searchTerm={search}
       statusFilter={status}
       paymentFilter={paymentStatus}
-      onSearchChange={setSearch}
-      onStatusFilterChange={setStatus}
-      onPaymentFilterChange={setPaymentStatus}
+      perPage={perPage}
+      onPerPageChange={(value) => {
+        setPerPage(value);
+        setCurrentPage(1);
+      }}
+      onSearchChange={(value) => {
+        setSearch(value);
+        setCurrentPage(1);
+      }}
+      onStatusFilterChange={(value) => {
+        setStatus(value);
+        setCurrentPage(1);
+      }}
+      onPaymentFilterChange={(value) => {
+        setPaymentStatus(value);
+        setCurrentPage(1);
+      }}
       isLoading={reqQuery.isLoading}
+      isFetching={reqQuery.isFetching}
+      isError={reqQuery.isError}
+      onRetry={() => reqQuery.refetch()}
+      pagination={reqQuery.pagination}
+      onPageChange={setCurrentPage}
     />
   );
 };

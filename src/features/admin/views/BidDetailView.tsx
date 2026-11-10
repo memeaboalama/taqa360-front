@@ -242,7 +242,7 @@ const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, e
                              <div className="mt-2 flex justify-center"><RatingStars rating={educator.rating} /></div>
                         </div>
                         <div className="text-sm space-y-3 pt-4 border-t dark:border-gray-700 mt-4">
-                            <div className="flex justify-between"><span><BriefcaseIcon className="w-4 h-4 inline me-2 text-gray-400"/><strong>{t('adminBidDetail.experience')}</strong></span> <span className="font-semibold">{t(`experienceLevel.${educator.profile.experienceLevel}`)}</span></div>
+                            <div className="flex justify-between"><span><BriefcaseIcon className="w-4 h-4 inline me-2 text-gray-400"/><strong>{t('adminBidDetail.experience')}</strong></span> <span className="font-semibold">{educator.profile.experienceLevel ? t(`experienceLevel.${educator.profile.experienceLevel}`) : t('adminBidDetail.notRegistered')}</span></div>
                             <div className="flex justify-between"><span><MapPinIcon className="w-4 h-4 inline me-2 text-gray-400"/><strong>{t('country')}</strong></span> <span className="font-semibold">{t(educator.country)}</span></div>
                             <div className="flex justify-between"><span><PhoneIcon className="w-4 h-4 inline me-2 text-gray-400"/><strong>{t('phone')}</strong></span> <a href={`tel:${educator.phone}`} className="font-semibold hover:underline">{educator.phone}</a></div>
                             <div className="flex justify-between"><span><EnvelopeIcon className="w-4 h-4 inline me-2 text-gray-400"/><strong>{t('email')}</strong></span> <a href={`mailto:${educator.email}`} className="font-semibold hover:underline">{educator.email}</a></div>
@@ -251,7 +251,9 @@ const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, e
                          <div className="pt-4 border-t dark:border-gray-700 mt-4">
                             <h5 className="font-bold text-sm mb-2">{t('skills')}</h5>
                             <div className="flex flex-wrap gap-2">
-                                {educator.skills.map(skill => <span key={skill.id} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 text-xs font-medium px-2.5 py-1 rounded-full">{t(skill.name)}</span>)}
+                                {educator.skills.length > 0
+                                    ? educator.skills.map(skill => <span key={skill.id} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 text-xs font-medium px-2.5 py-1 rounded-full">{t(skill.name)}</span>)
+                                    : <span className="text-sm text-gray-500">{t('adminBidDetail.notRegistered')}</span>}
                             </div>
                          </div>
                     </InfoCard>

@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Educator, AcademicMajor, WorkExperience, Certification, VerificationStatus, SocialLink, EducatorStatus, Service, Achievement, Skill, Language } from '../../../shared/types';
-import { BriefcaseIcon, AcademicCapIcon, StarIcon, XCircleIcon, UploadCloudIcon, PlusIcon, TrashIcon, LinkedinIcon, TwitterIcon, GithubIcon, WebsiteIcon, EditIcon, CheckBadgeIcon, WalletIcon, GlobeAltIcon, BuildingStorefrontIcon, UserCircleIcon, RectangleStackIcon, ShareIcon, LightBulbIcon, CheckCircleIcon } from '../../../shared/components/Icons';
+import { BriefcaseIcon, AcademicCapIcon, StarIcon, XCircleIcon, UploadCloudIcon, PlusIcon, TrashIcon, LinkedinIcon, TwitterIcon, GithubIcon, WebsiteIcon, EditIcon, CheckBadgeIcon, WalletIcon, GlobeAltIcon, BuildingStorefrontIcon, UserCircleIcon, RectangleStackIcon, ShareIcon, LightBulbIcon, CheckCircleIcon, FileTextIcon } from '../../../shared/components/Icons';
 import EditSocialLinksModal from '../../../shared/components/modals/EditSocialLinksModal';
 import EditPaymentInfoModal from '../../../shared/components/modals/EditPaymentInfoModal';
 import AddLanguageModal from '../../../shared/components/modals/AddLanguageModal';
 import AddSkillModal from '../../../shared/components/modals/AddSkillModal';
 import AddEditServiceModal from '../../../shared/components/modals/AddEditServiceModal';
 import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
-import { useCreateEducatorSkill, useDeleteEducatorSkill, useUpdateEducatorSkill, useCreateEducatorService, useUpdateEducatorService, useDeleteEducatorService, useUpdatePaymentInfo, useDeletePaymentInfo, useCreateEducatorLanguage, useUpdateEducatorLanguage, useDeleteEducatorLanguage } from '../../../core/hooks/useEducatorQueries';
+import { useCreateEducatorSkill, useDeleteEducatorSkill, useUpdateEducatorSkill, useCreateEducatorService, useUpdateEducatorService, useDeleteEducatorService, useUpdatePaymentInfo, useDeletePaymentInfo, useCreateEducatorLanguage, useUpdateEducatorLanguage, useDeleteEducatorLanguage, useEducatorProfile, useUpdateSocialLinks } from '../../../core/hooks/useEducatorQueries';
 import { useCountries, useCountryCities, useNationalities, useUpdateBasicInfo, useUpdateBiography, useOfficialAcademicMajors, useCreateAcademicMajor as useCreateAcademicMajorMutation, useUpdateAcademicMajor as useUpdateAcademicMajorMutation, useDeleteAcademicMajor as useDeleteAcademicMajorMutation } from '../../educators/hooks/useEducatorQueries';
 import CustomSelect from '../components/shared/CustomSelect';
 import SelectWithCreate, { SelectWithCreateOption } from '../components/shared/SelectWithCreate';
@@ -45,6 +46,113 @@ const BrandChip: React.FC<{ label: string; tone?: 'primary' | 'success' | 'warni
     warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
   };
   return <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${map[tone]}`}>{label}</span>;
+};
+
+type AttachmentKind = 'image' | 'pdf' | 'file';
+
+const getAttachmentKind = (url: string, fileName?: string | null, mimeType?: string | null): AttachmentKind => {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf') return 'pdf';
+
+  const path = `${fileName || ''} ${url}`.toLowerCase().split(/[?#]/)[0];
+  if (/\.pdf$/.test(path)) return 'pdf';
+  if (/\.(avif|bmp|gif|jpe?g|png|svg|webp)$/.test(path)) return 'image';
+  return 'file';
+};
+
+const AttachmentPreview: React.FC<{
+  url: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  className?: string;
+  alt: string;
+}> = ({ url, fileName, mimeType, className = '', alt }) => {
+  const { t } = useLanguage();
+  const [isOpen, setIsOpen] = useState(false);
+  const kind = getAttachmentKind(url, fileName, mimeType);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  const preview = kind === 'image' ? (
+    <img src={url} alt={alt} className="w-full h-full object-contain" />
+  ) : (
+    <div className="flex flex-col items-center justify-center gap-1 p-2 text-brand-primary">
+      <FileTextIcon className="w-8 h-8" />
+      <span className="text-[10px] font-bold uppercase">
+        {kind === 'pdf' ? t('profile.pdfDocument') : t('profile.documentFile')}
+      </span>
+    </div>
+  );
+
+  return (
+    <>
+      {kind === 'file' ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center justify-center overflow-hidden ${className}`}
+          title={t('profile.openAttachment')}
+          aria-label={t('profile.openAttachment')}
+        >
+          {preview}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className={`flex items-center justify-center overflow-hidden ${className}`}
+          title={t('profile.openAttachment')}
+          aria-label={t('profile.openAttachment')}
+        >
+          {preview}
+        </button>
+      )}
+      {isOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={fileName || alt}
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="relative flex h-[85vh] w-full max-w-5xl flex-col rounded-xl bg-white p-3 dark:bg-slate-900"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="truncate text-sm font-semibold text-slate-800 dark:text-white">
+                {fileName || alt}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                {t('profile.closePreview')}
+              </button>
+            </div>
+            {kind === 'pdf' ? (
+              <iframe src={url} title={fileName || alt} className="min-h-0 flex-1 rounded-lg border-0" />
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto">
+                <img src={url} alt={alt} className="max-h-full max-w-full object-contain" />
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
 };
 
 // --- Reusable UI Components ---
@@ -119,7 +227,16 @@ const TimelineItem: React.FC<{
   const { t } = useLanguage();
   const isWorkExperience = 'organization' in item;
   const isCertification = 'issuingAuthority' in item;
-  const title = isCertification ? item.title : ('degree' in item) ? (item.degree || item.majorName) : item.title;
+  const degree = 'degree' in item ? item.degree : null;
+  const degreeValue = String(degree || '').trim().toLowerCase();
+  const degreeLabel = degree
+    ? t(`profile.degree.${degreeValue.replace(/[\s-]+/g, '_')}`)
+    : '';
+  const title = isCertification
+    ? item.title
+    : ('degree' in item)
+      ? (degreeLabel.startsWith('profile.degree.') ? degree : degreeLabel) || item.majorName
+      : item.title;
   const subtitle = isCertification
     ? item.issuingAuthority || item.organization
     : ('majorName' in item)
@@ -132,6 +249,7 @@ const TimelineItem: React.FC<{
       : (item as AcademicMajor).graduationYear;
   const description = (item as any).description;
   const documentUrl = (item as any).documentUrl as string | undefined;
+  const documentMimeType = (item as any).documentMimeType as string | undefined;
   const verificationStatus = (item as any).verificationStatus as VerificationStatus | string | undefined;
   const rejectionReason = (item as any).rejectionReason as string | undefined;
   const normalizedStatus = String(verificationStatus || '').toUpperCase();
@@ -152,7 +270,13 @@ const TimelineItem: React.FC<{
         <div className="flex items-start gap-4 flex-1 min-w-0">
           <div className={`flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border ${documentUrl ? 'border-slate-200 dark:border-slate-700' : 'border-transparent'} bg-white dark:bg-slate-900/50 flex items-center justify-center`}>
             {documentUrl ? (
-              <img src={documentUrl} alt={title || t('profileSection.timeline.attachmentAlt')} className="w-full h-full object-cover" />
+              <AttachmentPreview
+                url={documentUrl}
+                mimeType={documentMimeType}
+                fileName={title}
+                alt={title || t('profileSection.timeline.attachmentAlt')}
+                className="h-full w-full"
+              />
             ) : (
               <div className={`w-full h-full flex items-center justify-center rounded-xl border ${toneStyles[tone]}`}>
                 {icon}
@@ -274,8 +398,8 @@ const ProfileSidebar: React.FC<{ educator: Educator; setModalState: (state: any)
 };
 
 // --- File Upload Component for Inline Forms ---
-const FileUploadWithPreview: React.FC<{ preview: string | null; fileName: string | null; onFileChange: (file: File | null) => void; onRemove: () => void; placeholderText?: string }>
-= ({ preview, fileName, onFileChange, onRemove, placeholderText }) => {
+const FileUploadWithPreview: React.FC<{ preview: string | null; fileName: string | null; fileType?: string | null; onFileChange: (file: File | null) => void; onRemove: () => void; placeholderText?: string }>
+= ({ preview, fileName, fileType, onFileChange, onRemove, placeholderText }) => {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { onFileChange(e.target.files[0]); } };
@@ -284,7 +408,13 @@ const FileUploadWithPreview: React.FC<{ preview: string | null; fileName: string
       <input type="file" ref={inputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
       {preview ? (
         <div className="relative group w-full h-24 border border-slate-300 dark:border-slate-600 rounded-lg">
-          <img src={preview} alt={t('profileSection.common.previewAlt')} className="w-full h-full object-contain rounded-lg p-1"/>
+          <AttachmentPreview
+            url={preview}
+            fileName={fileName}
+            mimeType={fileType}
+            alt={t('profileSection.common.previewAlt')}
+            className="h-full w-full rounded-lg p-1"
+          />
           <button type="button" onClick={onRemove} className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
             <XCircleIcon className="w-4 h-4"/>
           </button>
@@ -488,7 +618,7 @@ const AcademicMajorForm: React.FC<{
           </div>
           <div className="space-y-1 md:col-span-2">
             <label className={labelClass}>{t('profile.attachCertificate')} <span className="text-red-500">*</span></label>
-            <FileUploadWithPreview preview={preview} fileName={documentFile?.name || null} onFileChange={handleFileChange} onRemove={() => handleFileChange(null)} placeholderText={t('profile.attachCertificate')} />
+            <FileUploadWithPreview preview={preview} fileName={documentFile?.name || null} fileType={documentFile?.type} onFileChange={handleFileChange} onRemove={() => handleFileChange(null)} placeholderText={t('profile.attachCertificate')} />
           </div>
         </div>
       </div>
@@ -504,6 +634,8 @@ const AchievementForm: React.FC<{
   registerSave?: (fn: () => void) => void;
 }>
 = ({ initialData, defaultType = 'work_experience', onSaved, onCancel, registerSave }) => {
+  const now = new Date();
+  const maxIssueDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [type, setType] = useState<'work_experience' | 'certificate' | 'course' | 'workshop'>(
     (initialData?.type as any) || defaultType
   );
@@ -536,8 +668,12 @@ const AchievementForm: React.FC<{
     if (!org) errs.push(t('profile.company'));
     if (type === 'work_experience') {
       if (!formData.start_date) errs.push(t('profile.workExperience'));
+      if (formData.end_date && formData.start_date && formData.end_date < formData.start_date) {
+        errs.push(t('profile.endDateMustFollowStartDate'));
+      }
     } else {
       if (!formData.issue_date) errs.push(t('profile.issuingAuthority'));
+      else if (formData.issue_date > maxIssueDate) errs.push('تاريخ الإصدار لا يمكن أن يكون بعد اليوم');
     }
 
     if (errs.length) {
@@ -567,7 +703,7 @@ const AchievementForm: React.FC<{
     } finally {
       setSaving(false);
     }
-  }, [initialData?.id, formData, type, documentFile, onSaved]);
+  }, [initialData?.id, formData, type, documentFile, onSaved, maxIssueDate, t]);
 
   useEffect(() => {
     if (registerSave) {
@@ -627,7 +763,7 @@ const AchievementForm: React.FC<{
               </div>
               <div className="space-y-1">
                 <label className={labelClass}>{t('profile.endDate')}</label>
-                <input type="date" value={formData.end_date} onChange={e => setFormData(d => ({ ...d, end_date: e.target.value }))} className={inputClass} />
+                <input type="date" min={formData.start_date || undefined} value={formData.end_date} onChange={e => setFormData(d => ({ ...d, end_date: e.target.value }))} className={inputClass} />
               </div>
             </div>
           ) : (
@@ -643,7 +779,7 @@ const AchievementForm: React.FC<{
               </div>
               <div className="space-y-1">
                 <label className={labelClass}>{t('profile.issueDate')} <span className="text-red-500">*</span></label>
-                <input type="date" value={formData.issue_date} onChange={e => setFormData(d => ({ ...d, issue_date: e.target.value }))} className={inputClass} />
+                <input type="date" max={maxIssueDate} value={formData.issue_date} onChange={e => setFormData(d => ({ ...d, issue_date: e.target.value }))} className={inputClass} />
               </div>
             </div>
           )}
@@ -662,7 +798,7 @@ const AchievementForm: React.FC<{
 
           <div className="space-y-1 md:col-span-2">
             <label className={labelClass}>{t('profile.attachProof')}</label>
-            <FileUploadWithPreview preview={preview} fileName={documentFile?.name || null} onFileChange={handleFileChange} onRemove={() => handleFileChange(null)} />
+            <FileUploadWithPreview preview={preview} fileName={documentFile?.name || null} fileType={documentFile?.type} onFileChange={handleFileChange} onRemove={() => handleFileChange(null)} />
           </div>
         </div>
       </div>
@@ -930,6 +1066,7 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                   <FileUploadWithPreview
                     preview={frontPreview}
                     fileName={frontFile?.name || null}
+                    fileType={frontFile?.type}
                     onFileChange={(f) => { setFrontFile(f); setFrontRemoved(false); }}
                     onRemove={() => { setFrontFile(null); setFrontRemoved(true); setFrontPreview(null); }}
                   />
@@ -945,6 +1082,7 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                   <FileUploadWithPreview
                     preview={frontPreview}
                     fileName={frontFile?.name || null}
+                    fileType={frontFile?.type}
                     onFileChange={(f) => { setFrontFile(f); setFrontRemoved(false); }}
                     onRemove={() => { setFrontFile(null); setFrontRemoved(true); setFrontPreview(null); }}
                   />
@@ -957,6 +1095,7 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                   <FileUploadWithPreview
                     preview={backPreview}
                     fileName={backFile?.name || null}
+                    fileType={backFile?.type}
                     onFileChange={(f) => { setBackFile(f); setBackRemoved(false); }}
                     onRemove={() => { setBackFile(null); setBackRemoved(true); setBackPreview(null); }}
                   />
@@ -1174,6 +1313,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
   const createAcademicMajorMutation = useCreateAcademicMajorMutation();
   const updateAcademicMajorMutation = useUpdateAcademicMajorMutation();
   const deleteAcademicMajorMutation = useDeleteAcademicMajorMutation();
+  const profileQuery = useEducatorProfile();
+  const updateSocialLinksMutation = useUpdateSocialLinks();
 
   const handleListUpdate = <T extends {id: string}>(section: keyof Educator, newList: T[]) => { onUpdateProfile({ ...educator, [section]: newList } as any); };
 
@@ -1237,7 +1378,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
           }
           const list = (educator[section] as any[]) || [];
           handleListUpdate(section, list.filter((item: any) => item.id !== itemId));
-        } catch (e) {}
+        } catch (e: any) {
+          addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+          closeConfirm();
+          return;
+        }
         closeConfirm();
       }
     });
@@ -1544,7 +1689,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                         {s.name} • {s.level}
                         {s.isCustom && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-brand-primary/30 text-[10px]">{t('profileSection.customTag')}</span>}
                         <button onClick={() => setModalState({ type: 'skill', data: { skill: s } })} className="ml-1 text-slate-500 hover:text-brand-dark"><EditIcon className="w-3 h-3"/></button>
-                        <button onClick={() => openConfirm({ title: t('skills.confirmDeleteTitle'), message: t('skills.confirmDeleteMessage', {name:s.name}), confirmText: t('delete'), onConfirm: async () => { try { await deleteSkillMutation.mutateAsync(s.id); const list = educator.skills.filter(x => x.id !== s.id); onUpdateProfile({ ...educator, skills: list } as any); } catch {} closeConfirm(); } })} className="text-slate-500 hover:text-red-600"><TrashIcon className="w-3 h-3"/></button>
+                        <button onClick={() => openConfirm({ title: t('skills.confirmDeleteTitle'), message: t('skills.confirmDeleteMessage', {name:s.name}), confirmText: t('delete'), onConfirm: async () => {
+                          try {
+                            await deleteSkillMutation.mutateAsync(s.id);
+                            const list = educator.skills.filter(x => x.id !== s.id);
+                            onUpdateProfile({ ...educator, skills: list } as any);
+                          } catch (e: any) {
+                            addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+                          }
+                          closeConfirm();
+                        } })} className="text-slate-500 hover:text-red-600"><TrashIcon className="w-3 h-3"/></button>
                       </span>
                     ))}
                     {educator.skills.length === 0 && <span className="text-xs text-slate-500">{t('profileSection.noSkillsAdded')}</span>}
@@ -1561,7 +1715,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                       <span key={l.id} className="bg-brand-light text-brand-dark text-xs font-semibold px-2.5 py-1.5 rounded-full">
                         {l.name} • {l.level}
                         <button onClick={() => setModalState({ type: 'language', data: { language: l } })} className="ml-1 text-slate-500 hover:text-brand-dark"><EditIcon className="w-3 h-3"/></button>
-                        <button onClick={() => openConfirm({ title: t('profileSection.deleteConfirm.language'), message: t('profileSection.deleteConfirm.languageMsg'), confirmText: t('delete'), onConfirm: async () => { try { await deleteLanguageMutation.mutateAsync((l as any).id); const list = educator.languages.filter(x => x.id !== l.id); onUpdateProfile({ ...educator, languages: list } as any); addToast && addToast('تم حذف اللغة', 'info'); } catch {} closeConfirm(); } })} className="text-slate-500 hover:text-red-600"><TrashIcon className="w-3 h-3"/></button>
+                        <button onClick={() => openConfirm({ title: t('profileSection.deleteConfirm.language'), message: t('profileSection.deleteConfirm.languageMsg'), confirmText: t('delete'), onConfirm: async () => {
+                          try {
+                            await deleteLanguageMutation.mutateAsync(l.id);
+                            const list = educator.languages.filter(x => x.id !== l.id);
+                            onUpdateProfile({ ...educator, languages: list } as any);
+                            addToast && addToast('تم حذف اللغة', 'info');
+                          } catch (e: any) {
+                            addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+                          }
+                          closeConfirm();
+                        } })} className="text-slate-500 hover:text-red-600"><TrashIcon className="w-3 h-3"/></button>
                       </span>
                     ))}
                     {educator.languages.length === 0 && <span className="text-xs text-slate-500">{t('profileSection.noLanguagesAdded')}</span>}
@@ -1591,7 +1755,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                     </div>
                     <div className="flex items-center gap-1 opacity-60 hover:opacity-100">
                       <button onClick={() => setModalState({ type: 'service', data: { service: s } })} className="p-1 rounded hover:bg-brand-light"><EditIcon className="w-4 h-4"/></button>
-                      <button onClick={() => openConfirm({ title: t('profileSection.deleteConfirm.service'), message: t('profileSection.deleteConfirm.serviceMsg'), confirmText: t('profileSection.button.delete'), onConfirm: async () => { try { await deleteServiceMutation.mutateAsync(s.id); handleListUpdate('services', educator.services.filter(x => x.id !== s.id)); } catch {} closeConfirm(); } })} className="p-1 rounded hover:bg-brand-light"><TrashIcon className="w-4 h-4"/></button>
+                      <button onClick={() => openConfirm({ title: t('profileSection.deleteConfirm.service'), message: t('profileSection.deleteConfirm.serviceMsg'), confirmText: t('profileSection.button.delete'), onConfirm: async () => {
+                        try {
+                          await deleteServiceMutation.mutateAsync(s.id);
+                          handleListUpdate('services', educator.services.filter(x => x.id !== s.id));
+                        } catch (e: any) {
+                          addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+                        }
+                        closeConfirm();
+                      } })} className="p-1 rounded hover:bg-brand-light"><TrashIcon className="w-4 h-4"/></button>
                     </div>
                   </div>
                 ))}
@@ -1650,6 +1822,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                     const next = [saved, ...((educator.achievements || []).filter(a => a.id !== saved.id))];
                     onUpdateProfile({ ...educator, achievements: next } as any);
                     setFormState(null);
+                    void profileQuery.refetch();
                   }}
                   onCancel={() => setFormState(null)}
                   registerSave={(fn) => { experienceSaveRef.current = fn; }}
@@ -1665,6 +1838,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                       const list = (educator.achievements || []).map(x => x.id === saved.id ? saved : x);
                       onUpdateProfile({ ...educator, achievements: list } as any);
                       setFormState(null);
+                      void profileQuery.refetch();
                     }}
                     onCancel={() => setFormState(null)}
                     registerSave={(fn) => { experienceSaveRef.current = fn; }}
@@ -1685,7 +1859,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                     isActive={formState?.mode === 'edit' && formState?.section === 'achievement' && formState.id === a.id}
                     onEdit={() => setFormState({ mode: 'edit', section: 'achievement', id: a.id })}
                     onDelete={async () => {
-                      openConfirm({ title: t('profileSection.deleteConfirm.item'), message: t('profileSection.deleteConfirm.itemMsg'), confirmText: 'حذف', onConfirm: async () => { try { await deleteAchievement(a.id); const list = (educator.achievements || []).filter(x => x.id !== a.id); onUpdateProfile({ ...educator, achievements: list } as any); } catch (e) {} closeConfirm(); } });
+                      openConfirm({ title: t('profileSection.deleteConfirm.item'), message: t('profileSection.deleteConfirm.itemMsg'), confirmText: 'حذف', onConfirm: async () => {
+                        try {
+                          await deleteAchievement(a.id);
+                          await profileQuery.refetch();
+                          const list = (educator.achievements || []).filter(x => x.id !== a.id);
+                          onUpdateProfile({ ...educator, achievements: list } as any);
+                        } catch (e: any) {
+                          addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+                        }
+                        closeConfirm();
+                      } });
                     }}
                   />
                 )
@@ -1703,17 +1887,27 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
         <ProfileSidebar educator={educatorWithComputedCompletion} setModalState={setModalState} />
       </div>
 
-      {modalState?.type === 'socialLinks' && <EditSocialLinksModal isOpen={true} onClose={() => setModalState(null)} onSubmit={(links) => onUpdateProfile({ ...educator, socialLinks: links })} currentLinks={educator.socialLinks} />}
+      {modalState?.type === 'socialLinks' && <EditSocialLinksModal isOpen={true} onClose={() => setModalState(null)} onSubmit={async (links) => {
+        try {
+          const response = await updateSocialLinksMutation.mutateAsync(links);
+          const savedLinks = Array.isArray(response.data) ? response.data : links;
+          onUpdateProfile({ ...educator, socialLinks: savedLinks } as any, { showToast: false });
+          addToast && addToast(t('toasts.changesSaved'));
+        } catch (e: any) {
+          addToast && addToast(e?.message || t('profileSection.toast.failedToSave'), 'error');
+          throw e;
+        }
+      }} currentLinks={educator.socialLinks} />}
       {modalState?.type === 'payment' && <EditPaymentInfoModal isOpen={true} onClose={() => setModalState(null)} onSubmit={async (info) => {
         try {
           const payload = { ...info, bank_country: (info as any).bankCountry || (info as any).bank_country || '', bank_code: (info as any).bankCode || (info as any).bank_code || '' } as any;
           const resp = await updatePaymentInfoMutation.mutateAsync(payload);
-          const updated = (resp as any) ?? resp;
+          const updated = (resp as any)?.data ?? resp;
           onUpdateProfile({ ...educator, paymentInfo: updated } as any);
+          setModalState(null);
         } catch (e: any) {
-          addToast && addToast(t('profileSection.toast.bankInfoFailed'), 'error');
+          addToast && addToast(e?.message || t('profileSection.toast.bankInfoFailed'), 'error');
         }
-        setModalState(null);
       }} currentInfo={educator.paymentInfo || educator.bankInfo || { bankName: '', accountHolderName: '', iban: '' }} />}
 
       <ConfirmationModal
@@ -1733,21 +1927,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
           currentSkills={educator.skills}
           addToast={addToast}
           onSubmit={async (payload) => {
-            try {
-              if (payload.id) {
-                await updateSkillMutation.mutateAsync({ id: payload.id, data: { skill_id: payload.skill_id, custom_name: payload.custom_name, is_custom: payload.is_custom, level: payload.level } });
-                const list = educator.skills.map(s => s.id === payload.id ? { ...s, name: payload.custom_name || (s as any).name, level: payload.level, isCustom: Boolean(payload.is_custom), skillId: payload.skill_id || null } as any : s);
-                onUpdateProfile({ ...educator, skills: list } as any, { showToast: false });
-                addToast && addToast(t('profileSection.toast.skillUpdated'));
-              } else {
-                await createSkillMutation.mutateAsync({ skill_id: payload.skill_id, custom_name: payload.custom_name, is_custom: payload.is_custom, level: payload.level });
-                const name = payload.custom_name || (educator.skills.find(s => (s as any).skillId === payload.skill_id)?.name) || '';
-                const newItem: Skill = { id: `skill-${Date.now()}`, name, level: payload.level, isCustom: Boolean(payload.is_custom), skillId: payload.skill_id || null } as any;
-                onUpdateProfile({ ...educator, skills: [...educator.skills, newItem] } as any, { showToast: false });
-                addToast && addToast(t('profileSection.toast.skillAdded'));
-              }
-            } catch {
-              addToast && addToast(t('profileSection.toast.failedToSave'));
+            if (payload.id) {
+              await updateSkillMutation.mutateAsync({ id: payload.id, data: { skill_id: payload.skill_id, custom_name: payload.custom_name, is_custom: payload.is_custom, level: payload.level } });
+              const list = educator.skills.map(s => s.id === payload.id ? { ...s, name: payload.custom_name || (s as any).name, level: payload.level, isCustom: Boolean(payload.is_custom), skillId: payload.skill_id || null } as any : s);
+              onUpdateProfile({ ...educator, skills: list } as any, { showToast: false });
+              addToast && addToast(t('profileSection.toast.skillUpdated'));
+            } else {
+              await createSkillMutation.mutateAsync({ skill_id: payload.skill_id, custom_name: payload.custom_name, is_custom: payload.is_custom, level: payload.level });
+              const name = payload.custom_name || (educator.skills.find(s => (s as any).skillId === payload.skill_id)?.name) || '';
+              const newItem: Skill = { id: `skill-${Date.now()}`, name, level: payload.level, isCustom: Boolean(payload.is_custom), skillId: payload.skill_id || null } as any;
+              onUpdateProfile({ ...educator, skills: [newItem, ...educator.skills] } as any, { showToast: false });
+              addToast && addToast(t('profileSection.toast.skillAdded'));
             }
             setModalState(null);
           }}
@@ -1774,10 +1964,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
                 onUpdateProfile({ ...educator, languages: [...educator.languages, newItem] } as any, { showToast: false });
                 addToast && addToast(t('profileSection.toast.languageAdded'));
               }
+              setModalState(null);
             } catch {
-              addToast && addToast(t('profileSection.toast.failedToSave'));
+              addToast && addToast(t('profileSection.toast.failedToSave'), 'error');
             }
-            setModalState(null);
           }}
         />
       )}
@@ -1788,32 +1978,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
           onClose={() => setModalState(null)}
           service={modalState.data?.service}
           onSubmit={async (payload) => {
-            try {
-              if (payload.id) {
-                await updateServiceMutation.mutateAsync({ id: payload.id, data: { service_id: payload.service_id, custom_name: payload.custom_name, custom_description: payload.custom_description, is_custom: payload.is_custom } as any });
-                const updated = educator.services.map(s => s.id === payload.id ? ({
-                  ...s,
-                  name: payload.is_custom ? (payload.custom_name || s.name) : (payload.service_name || s.name),
-                  description: payload.custom_description || s.description || null,
-                  isCustom: Boolean(payload.is_custom),
-                  serviceId: payload.service_id || null,
-                } as Service) : s);
-                onUpdateProfile({ ...educator, services: updated } as any, { showToast: false });
-                addToast && addToast(t('profileSection.toast.serviceUpdated'));
-              } else {
-                await createServiceMutation.mutateAsync({ service_id: payload.service_id, custom_name: payload.custom_name, custom_description: payload.custom_description, is_custom: payload.is_custom } as any);
-                const newItem: Service = {
-                  id: `svc-${Date.now()}`,
-                  name: payload.is_custom ? (payload.custom_name || '') : (payload.service_name || ''),
-                  description: payload.custom_description || null,
-                  isCustom: Boolean(payload.is_custom),
-                  serviceId: payload.service_id || null
-                } as any;
-                onUpdateProfile({ ...educator, services: [...educator.services, newItem] } as any, { showToast: false });
-                addToast && addToast(t('profileSection.toast.serviceAdded'));
-              }
-            } catch {
-              addToast && addToast(t('profileSection.toast.failedToSave'));
+            if (payload.id) {
+              await updateServiceMutation.mutateAsync({ id: payload.id, data: { service_id: payload.service_id, custom_name: payload.custom_name, custom_description: payload.custom_description, is_custom: payload.is_custom } as any });
+              const updated = educator.services.map(s => s.id === payload.id ? ({
+                ...s,
+                name: payload.is_custom ? (payload.custom_name || s.name) : (payload.service_name || s.name),
+                description: payload.custom_description || s.description || null,
+                isCustom: Boolean(payload.is_custom),
+                serviceId: payload.service_id || null,
+              } as Service) : s);
+              onUpdateProfile({ ...educator, services: updated } as any, { showToast: false });
+              addToast && addToast(t('profileSection.toast.serviceUpdated'));
+            } else {
+              await createServiceMutation.mutateAsync({ service_id: payload.service_id, custom_name: payload.custom_name, custom_description: payload.custom_description, is_custom: payload.is_custom } as any);
+              const newItem: Service = {
+                id: `svc-${Date.now()}`,
+                name: payload.is_custom ? (payload.custom_name || '') : (payload.service_name || ''),
+                description: payload.custom_description || null,
+                isCustom: Boolean(payload.is_custom),
+                serviceId: payload.service_id || null
+              } as any;
+              onUpdateProfile({ ...educator, services: [newItem, ...educator.services] } as any, { showToast: false });
+              addToast && addToast(t('profileSection.toast.serviceAdded'));
             }
             setModalState(null);
           }}

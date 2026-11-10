@@ -2,8 +2,7 @@ import React, { useMemo } from 'react';
 import { Educator, Project, Task, ProjectStatus } from '../../../shared/types';
 import { EducatorViewType } from '../../../shared/types';
 import TaskDetailView from './TaskDetailView';
-import { useEducatorTaskDetail, useCreateEducatorSubTask, useToggleEducatorSubTask, useUploadEducatorDeliverable, useDeleteEducatorDeliverable, useEducatorUpdateTaskStatus, useUpdateEducatorSubTask, useUploadEducatorSubTaskAttachment } from '../../../core/hooks/useEducatorQueries';
-import { ProjectService } from '../../../features/projects/services/ProjectService';
+import { useEducatorTaskDetail, useCreateEducatorSubTask, useToggleEducatorSubTask, useUploadEducatorDeliverable, useDeleteEducatorDeliverable, useEducatorUpdateTaskStatus, useUpdateEducatorSubTask, useUploadEducatorSubTaskAttachment, useCreateEducatorTaskNote } from '../../../core/hooks/useEducatorQueries';
 import { useData } from '../../../app/providers/DataProvider';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 
@@ -28,6 +27,7 @@ const TaskDetailContainer: React.FC<TaskDetailContainerProps> = ({ taskId, educa
   const { mutateAsync: uploadDeliverable } = useUploadEducatorDeliverable();
   const { mutateAsync: deleteDeliverable } = useDeleteEducatorDeliverable();
   const { mutateAsync: updateStatus } = useEducatorUpdateTaskStatus();
+  const { mutateAsync: createTaskNote } = useCreateEducatorTaskNote();
   const { mutateAsync: updateSubTask } = useUpdateEducatorSubTask();
   const { mutateAsync: uploadSubTaskAttachment } = useUploadEducatorSubTaskAttachment();
 
@@ -139,19 +139,20 @@ const TaskDetailContainer: React.FC<TaskDetailContainerProps> = ({ taskId, educa
 
   const handleAddNote = async (projectId: string, taskId: string, content: string) => {
     try {
-      await ProjectService.addTaskNote(taskId, content);
+      await createTaskNote({ taskId, content });
       addToast && addToast(t('toasts.noteAdded'));
     } catch (e: any) {
       addToast && addToast(e?.message || t('toasts.failedToAddNote'), 'error');
+      throw e;
     }
   };
 
-  const handleUpdateTaskStatus = async (_projectId: string, _taskId: string, newStatus: ProjectStatus) => {
+  const handleUpdateTaskStatus = async (_projectId: string, _taskId: string, newStatus: ProjectStatus.IN_PROGRESS | ProjectStatus.COMPLETED) => {
     try {
       await updateStatus({ taskId, status: newStatus });
       addToast && addToast(t('toasts.taskUpdated'));
     } catch (e: any) {
-      addToast && addToast(e?.message || t('toasts.failedToCompleteTask'), 'error');
+      addToast && addToast(e?.message || (newStatus === ProjectStatus.COMPLETED ? t('toasts.failedToCompleteTask') : t('toasts.failedToUpdateTask')), 'error');
       throw e;
     }
   };

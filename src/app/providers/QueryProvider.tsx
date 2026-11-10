@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { env } from '../../core/config/env';
 import { realtime, wireRealtimeInvalidation } from '../../core/services/realtime';
 
 // إعداد Query Client
@@ -35,7 +34,10 @@ interface QueryProviderProps {
 export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
   React.useEffect(() => {
     let lastRefetch = 0;
-    const MIN_INTERVAL = Number((env as any).REFETCH_THROTTLE_MS) || 30 * 1000; // default 30s
+    const configuredInterval = Number((import.meta as any).env?.VITE_REFETCH_THROTTLE_MS);
+    const MIN_INTERVAL = Number.isFinite(configuredInterval) && configuredInterval > 0
+      ? configuredInterval
+      : 30 * 1000;
 
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
@@ -68,7 +70,7 @@ export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {env.IS_DEVELOPMENT && (
+      {(import.meta as any).env?.DEV && (
         <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
       )}
     </QueryClientProvider>

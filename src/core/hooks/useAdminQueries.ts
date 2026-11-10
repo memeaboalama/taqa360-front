@@ -3,7 +3,7 @@
  * Comprehensive React Query hooks for admin operations
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBaseQuery, usePaginatedQuery, useBaseMutation, QueryKeyFactory } from './useBaseQuery';
 import { adminService, AdminDashboardData, BulkOperation } from '../services/AdminService';
 import { QueryParams, PaginatedRequestParams } from '../api/types';
@@ -177,6 +177,13 @@ export function useApproveEducatorIdentity() {
   );
 }
 
+export function useSendEducatorVerificationReminder() {
+  return useBaseMutation(
+    ['admin', 'educator', 'verification-reminder'],
+    (id: string) => adminService.sendEducatorVerificationReminder(id)
+  );
+}
+
 export function useRejectEducatorIdentity() {
   const queryClient = useQueryClient();
   return useBaseMutation(
@@ -219,10 +226,26 @@ export function useUnsuspendEducator() {
 }
 
 export function useInviteEducator() {
+  const queryClient = useQueryClient();
   return useBaseMutation(
     ['admin', 'educator', 'invite'],
-    (email: string) => adminService.inviteEducator(email)
+    (email: string) => adminService.inviteEducator(email),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['educator-invitations'] });
+      }
+    }
   );
+}
+
+export function useAdminEducatorInvitations() {
+  return useQuery({
+    queryKey: ['educator-invitations'],
+    queryFn: () => adminService.getEducatorInvitations(),
+    staleTime: 15000,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useApproveAcademicMajor() {
@@ -327,10 +350,11 @@ export function useDeleteUser() {
 }
 
 // Educational Requests Hooks
-export function useAdminEducationalRequests(params?: QueryParams) {
+export function useAdminEducationalRequests(params?: QueryParams & { status?: string; paymentStatus?: string }) {
   return usePaginatedQuery(
     QueryKeyFactory.list(QueryKeyFactory.QUERIES.EDUCATIONAL_REQUESTS, params),
-    () => adminService.getEducationalRequests(params)
+    () => adminService.getEducationalRequests(params),
+    { keepPreviousData: true }
   );
 }
 
@@ -438,8 +462,17 @@ export function useDeleteProjectAttachment() {
 export function useAdminProjects(params: PaginatedRequestParams) {
   return usePaginatedQuery(
     QueryKeyFactory.list(QueryKeyFactory.QUERIES.PROJECTS, params),
-    () => adminService.getProjects(params)
+    () => adminService.getProjects(params),
+    { keepPreviousData: true }
   );
+}
+
+export function useAdminProjectTabCounts(params: { search?: string; creation_type?: string; created_by?: string } = {}) {
+  return useQuery({
+    queryKey: [...QueryKeyFactory.lists(QueryKeyFactory.QUERIES.PROJECTS), 'tab-counts', params],
+    queryFn: () => adminService.getProjectTabCounts(params),
+    staleTime: 15000,
+  });
 }
 
 export function useAdminProject(id: string) {
@@ -602,6 +635,7 @@ export function useCreateTask() {
         } else {
           QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.PROJECTS, variables.projectId);
         }
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
       }
     }
   );
@@ -641,6 +675,7 @@ export function useUpdateTask() {
           QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.PROJECTS, variables.projectId);
           QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.TASKS, variables.taskId);
         }
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
       }
     }
   );
@@ -656,6 +691,7 @@ export function useDeleteTask() {
     {
       onSuccess: (_data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.PROJECTS, variables.projectId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
         queryClient.removeQueries({
           queryKey: QueryKeyFactory.detail(QueryKeyFactory.QUERIES.TASKS, variables.taskId)
         });
@@ -942,6 +978,7 @@ export function useApproveBidTask() {
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
         queryClient.invalidateQueries({
           queryKey: QueryKeyFactory.related(QueryKeyFactory.QUERIES.BIDS, variables.bidId, 'tasks')
         });
@@ -960,6 +997,7 @@ export function useRejectBidTask() {
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
         queryClient.invalidateQueries({
           queryKey: QueryKeyFactory.related(QueryKeyFactory.QUERIES.BIDS, variables.bidId, 'tasks')
         });
@@ -978,6 +1016,7 @@ export function useBulkApproveBidTasks() {
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
         queryClient.invalidateQueries({
           queryKey: QueryKeyFactory.related(QueryKeyFactory.QUERIES.BIDS, variables.bidId, 'tasks')
         });
@@ -996,6 +1035,7 @@ export function useBulkRejectBidTasks() {
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
         queryClient.invalidateQueries({
           queryKey: QueryKeyFactory.related(QueryKeyFactory.QUERIES.BIDS, variables.bidId, 'tasks')
         });

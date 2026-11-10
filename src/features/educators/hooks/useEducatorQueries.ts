@@ -273,9 +273,10 @@ export const useUpdateBasicInfo = (options?: UseMutationOptions<Educator, Error,
   const queryClient = useQueryClient();
   return useMutation<Educator, Error, Parameters<typeof EducatorService.updateBasicInfo>[0]>({
     mutationFn: EducatorService.updateBasicInfo,
-    onSuccess: (data, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: educatorQueryKeys.myProfile() });
-      options?.onSuccess?.(data, variables, context);
+    onSuccess: async (data, variables, context, mutation) => {
+      await queryClient.invalidateQueries({ queryKey: educatorQueryKeys.myProfile() });
+      await queryClient.invalidateQueries({ queryKey: ['educator-profile'] });
+      await options?.onSuccess?.(data, variables, context, mutation);
     },
     ...options,
   });
@@ -285,9 +286,10 @@ export const useUpdateBiography = (options?: UseMutationOptions<Educator, Error,
   const queryClient = useQueryClient();
   return useMutation<Educator, Error, Parameters<typeof EducatorService.updateBiography>[0]>({
     mutationFn: EducatorService.updateBiography,
-    onSuccess: (data, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: educatorQueryKeys.myProfile() });
-      options?.onSuccess?.(data, variables, context);
+    onSuccess: async (data, variables, context, mutation) => {
+      await queryClient.invalidateQueries({ queryKey: educatorQueryKeys.myProfile() });
+      await queryClient.invalidateQueries({ queryKey: ['educator-profile'] });
+      await options?.onSuccess?.(data, variables, context, mutation);
     },
     ...options,
   });
@@ -321,9 +323,10 @@ export const useCreateAcademicMajor = (options?: UseMutationOptions<AcademicMajo
   const queryClient = useQueryClient();
   return useMutation<AcademicMajor, Error, Omit<AcademicMajor, 'id' | 'verificationStatus'>>({
     mutationFn: EducatorService.createAcademicMajor,
-    onSuccess: (data, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
-      options?.onSuccess?.(data, variables, context);
+    onSuccess: async (data, variables, context, mutation) => {
+      await queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
+      await queryClient.invalidateQueries({ queryKey: ['educator-profile'] });
+      await options?.onSuccess?.(data, variables, context, mutation);
     },
     ...options,
   });
@@ -333,9 +336,10 @@ export const useUpdateAcademicMajor = (options?: UseMutationOptions<AcademicMajo
   const queryClient = useQueryClient();
   return useMutation<AcademicMajor, Error, { id: string; data: Partial<AcademicMajor> }>({
     mutationFn: ({ id, data }) => EducatorService.updateAcademicMajor(id, data),
-    onSuccess: (data, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
-      options?.onSuccess?.(data, variables, context);
+    onSuccess: async (data, variables, context, mutation) => {
+      await queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
+      await queryClient.invalidateQueries({ queryKey: ['educator-profile'] });
+      await options?.onSuccess?.(data, variables, context, mutation);
     },
     ...options,
   });
@@ -345,9 +349,10 @@ export const useDeleteAcademicMajor = (options?: UseMutationOptions<void, Error,
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: EducatorService.deleteAcademicMajor,
-    onSuccess: (data, id, context) => {
-      queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
-      options?.onSuccess?.(data, id, context);
+    onSuccess: async (data, id, context, mutation) => {
+      await queryClient.invalidateQueries({ queryKey: educatorQueryKeys.academicMajors() });
+      await queryClient.invalidateQueries({ queryKey: ['educator-profile'] });
+      await options?.onSuccess?.(data, id, context, mutation);
     },
     ...options,
   });

@@ -1,8 +1,31 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { EducationalRequest, EducationalRequestStatus, Project, PaymentStatus, FulfillmentStatus, User, ViewType } from '../../../shared/types';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, EyeIcon, SearchIcon, FilterIcon, ViewGridIcon, ViewListIcon } from '../../../shared/components/Icons';
-import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
+import { EyeIcon, SearchIcon, ViewGridIcon, ViewListIcon, ChevronLeftIcon, ChevronRightIcon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import type { Pagination } from '../../../core/api/types';
+
+const buildPageList = (current: number, last: number, maxVisible = 7) => {
+    if (!last || last < 1) return [];
+    if (last === 1) return [1];
+    const pages: (number | string)[] = [];
+    const half = Math.floor(maxVisible / 2);
+    let start = Math.max(1, current - half);
+    let end = Math.min(last, current + half);
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, Math.min(start, last - maxVisible + 1));
+        end = Math.min(last, start + maxVisible - 1);
+    }
+    if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push('...');
+    }
+    for (let page = start; page <= end; page++) pages.push(page);
+    if (end < last) {
+        if (end < last - 1) pages.push('...');
+        pages.push(last);
+    }
+    return pages;
+};
 
 const getStatusChipClass = (status: any, t: (key: string) => string) => {
     if (!status) return "bg-gray-100 text-gray-800";
@@ -84,10 +107,17 @@ interface EducationalRequestsViewProps {
     searchTerm?: string;
     statusFilter?: string;
     paymentFilter?: string;
+    perPage?: number;
     isLoading?: boolean;
+    isFetching?: boolean;
+    isError?: boolean;
+    onRetry?: () => void;
+    pagination?: Pagination;
+    onPageChange?: (page: number) => void;
     onSearchChange?: (v: string) => void;
     onStatusFilterChange?: (v: string) => void;
     onPaymentFilterChange?: (v: string) => void;
+    onPerPageChange?: (v: number) => void;
 }
 
 const RequestCard: React.FC<Omit<RequestRowProps, 'onViewDetails'>> = ({ request, requesterName, linkedProject, navigateTo }) => {
@@ -181,7 +211,7 @@ const RequestRow: React.FC<RequestRowProps> = ({ request, requesterName, linkedP
     );
 };
 
-const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ requests, projects, users, navigateTo, searchTerm: sTermProp, statusFilter: sFilterProp, paymentFilter: pFilterProp, isLoading, onSearchChange, onStatusFilterChange, onPaymentFilterChange }) => {
+const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ requests, projects, users, navigateTo, searchTerm: sTermProp, statusFilter: sFilterProp, paymentFilter: pFilterProp, perPage, isLoading, isFetching, isError, onRetry, pagination, onPageChange, onSearchChange, onStatusFilterChange, onPaymentFilterChange, onPerPageChange }) => {
     const { t } = useLanguage();
     const [searchTermInternal, setSearchTermInternal] = useState('');
     const [statusFilterInternal, setStatusFilterInternal] = useState('all');
@@ -206,31 +236,38 @@ const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ reque
         }
     };
 
-    const filteredRequests = useMemo(() => {
-        return requests.map(req => {
+    const filteredRequests = useMemo(() => requests.map(req => {
             const requester = users.find(u => u.id === req.requesterId);
             return { ...req, requesterName: requester?.name || t('finance.unknown') };
-        }).filter(req => {
-            const statusMatch = statusFilter === 'all' || req.status === statusFilter;
-            const paymentMatch = paymentFilter === 'all' || req.paymentStatus === paymentFilter;
-            const searchMatch = searchTerm === '' || req.title.toLowerCase().includes(searchTerm.toLowerCase()) || req.requesterName.toLowerCase().includes(searchTerm.toLowerCase());
-            return statusMatch && paymentMatch && searchMatch;
-        });
-    }, [requests, users, searchTerm, statusFilter, paymentFilter]);
+        }), [requests, users, t]);
+    const totalRequests = pagination?.meta.page.total ?? filteredRequests.length;
 
     return (
             <div className="animate-fade-in">
                 <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('requests')}</h1>
-                        <p className="text-gray-500 dark:text-gray-400">{filteredRequests.length} {t('projectsView.subtitle', { count: filteredRequests.length })}</p>
+                        <p className="text-gray-500 dark:text-gray-400">{t('requestsView.subtitle', { count: totalRequests })}</p>
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 mb-6 border dark:border-gray-700">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{filteredRequests.length} نتيجة</div>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="requests-per-page" className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{t('projectsView.perPage')}:</label>
+                        <select
+                          id="requests-per-page"
+                          value={perPage ?? pagination?.meta.page.per ?? 10}
+                          onChange={event => onPerPageChange?.(Number(event.target.value))}
+                          className="bg-slate-50 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded text-sm py-1 px-2"
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-slate-100 dark:bg-slate-700 shadow-sm' : ''}`} title={t('table')}><ViewListIcon className="w-5 h-5 text-gray-600 dark:text-gray-300"/></button>
@@ -270,11 +307,31 @@ const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ reque
                 </div>
                 
                 {isLoading ? (
-                    <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl shadow-sm border dark:border-gray-700">
-                        <div className="inline-block animate-spin rounded-full h-6 w-6" style={{ borderBottom: '2px solid var(--primary-color)' }}></div>
-                        <span className="ms-2 text-sm text-slate-600 dark:text-slate-400 font-medium">{t('loading')}</span>
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 bg-white dark:bg-slate-800 rounded-xl shadow-sm border dark:border-gray-700 text-slate-600 dark:text-slate-300" role="status" aria-live="polite">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-b-brand-primary"></div>
+                        <span className="text-sm font-medium">{t('requestsView.loading')}</span>
+                    </div>
+                ) : isError && filteredRequests.length === 0 ? (
+                    <div className="text-center py-12 px-4 bg-white dark:bg-slate-800 rounded-xl border border-red-200 dark:border-red-900" role="alert">
+                        <p className="text-red-700 dark:text-red-300 mb-4">{t('requestsView.loadError')}</p>
+                        <button type="button" onClick={onRetry} className="px-4 py-2 text-sm font-semibold text-white rounded-lg" style={{ backgroundColor: 'var(--primary-color)' }}>
+                            {t('requestsView.retry')}
+                        </button>
                     </div>
                 ) : viewMode === 'table' ? (
+                    <>
+                    {isError && (
+                        <div className="flex items-center justify-center gap-3 py-3 mb-4 text-sm text-red-700 dark:text-red-300" role="alert">
+                            <span>{t('requestsView.loadError')}</span>
+                            <button type="button" onClick={onRetry} className="font-semibold underline">{t('requestsView.retry')}</button>
+                        </div>
+                    )}
+                    {isFetching && (
+                        <div className="flex items-center justify-center gap-2 py-3 mb-4 text-sm text-slate-600 dark:text-slate-300" role="status" aria-live="polite">
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-200 border-b-brand-primary"></div>
+                            <span>{t('requestsView.refreshing')}</span>
+                        </div>
+                    )}
                      <div className="relative overflow-x-auto shadow-md sm:rounded-lg bg-white dark:bg-slate-800 border dark:border-gray-700">
                         <table className="w-full text-sm text-right text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-gray-400">
@@ -305,8 +362,21 @@ const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ reque
                             </tbody>
                         </table>
                     </div>
+                    </>
                 ) : (
                     <>
+                        {isError && (
+                            <div className="flex items-center justify-center gap-3 py-3 mb-4 text-sm text-red-700 dark:text-red-300" role="alert">
+                                <span>{t('requestsView.loadError')}</span>
+                                <button type="button" onClick={onRetry} className="font-semibold underline">{t('requestsView.retry')}</button>
+                            </div>
+                        )}
+                        {isFetching && (
+                            <div className="flex items-center justify-center gap-2 py-3 mb-4 text-sm text-slate-600 dark:text-slate-300" role="status" aria-live="polite">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-200 border-b-brand-primary"></div>
+                                <span>{t('requestsView.refreshing')}</span>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                             {filteredRequests.map(request => (
                                  <RequestCard
@@ -324,6 +394,60 @@ const EducationalRequestsView: React.FC<EducationalRequestsViewProps> = ({ reque
                     </>
                 )}
 
+                {pagination && pagination.meta.page.total > 0 && (
+                    <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 border dark:border-gray-700">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                                {t('projectsView.showingResults', {
+                                    from: pagination.meta.page.from,
+                                    to: pagination.meta.page.to,
+                                    total: pagination.meta.page.total
+                                })}
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => pagination.meta.page.previous && onPageChange?.(pagination.meta.page.previous)}
+                                    disabled={!pagination.meta.page.isPrevious}
+                                    aria-label={t('requestsView.previous')}
+                                    className="p-3 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                                >
+                                    <ChevronRightIcon className="w-4 h-4" />
+                                </button>
+                                <div className="flex gap-2 items-center">
+                                    {buildPageList(pagination.meta.page.current, pagination.meta.page.last).map((page, index) => {
+                                        if (page === '...') return <span key={`dots-${index}`} className="px-2">...</span>;
+                                        const pageNumber = Number(page);
+                                        const isCurrent = pageNumber === pagination.meta.page.current;
+                                        const isOnlyPage = pagination.meta.page.last === 1;
+                                        return (
+                                            <button
+                                                key={pageNumber}
+                                                type="button"
+                                                onClick={() => onPageChange?.(pageNumber)}
+                                                disabled={isCurrent || isOnlyPage}
+                                                aria-current={isCurrent ? 'page' : undefined}
+                                                className={`px-3 py-2 text-sm rounded-lg ${isOnlyPage ? 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-400 cursor-not-allowed' : isCurrent ? 'text-white' : 'border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                                style={isCurrent && !isOnlyPage ? { backgroundColor: 'var(--primary-color)' } : {}}
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => pagination.meta.page.next && onPageChange?.(pagination.meta.page.next)}
+                                    disabled={!pagination.meta.page.isNext}
+                                    aria-label={t('requestsView.next')}
+                                    className="p-3 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                                >
+                                    <ChevronLeftIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
     );
 };

@@ -15,7 +15,7 @@ interface AddEditServiceModalProps {
 
 const AddEditServiceModal: React.FC<AddEditServiceModalProps> = ({ isOpen, onClose, onSubmit, service }) => {
   const { t } = useLanguage();
-  const { data, isLoading } = useQuery({ queryKey: ['admin-services'], queryFn: () => EducatorService.getAdminServices() });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['educator-available-services'], queryFn: () => EducatorService.getAvailableServices() });
 
   const options = useMemo(() => {
     const list = Array.isArray(data) && data.length > 0 ? data : [];
@@ -27,6 +27,7 @@ const AddEditServiceModal: React.FC<AddEditServiceModalProps> = ({ isOpen, onClo
   const [customName, setCustomName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (service) {
@@ -69,6 +70,15 @@ const AddEditServiceModal: React.FC<AddEditServiceModalProps> = ({ isOpen, onClo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+    setSaveError(null);
+    if (!isCustom && !selected) {
+      setSaveError(t('profile.selectOrAddService'));
+      return;
+    }
+    if (isCustom && !customName.trim()) {
+      setSaveError(t('profile.serviceName'));
+      return;
+    }
     const payload = {
       id: service?.id,
       service_id: isCustom ? null : (selected?.value || null),
@@ -81,6 +91,8 @@ const AddEditServiceModal: React.FC<AddEditServiceModalProps> = ({ isOpen, onClo
     try {
       await Promise.resolve(onSubmit(payload));
       onClose();
+    } catch (submitError) {
+      setSaveError(submitError instanceof Error ? submitError.message : t('profileSection.toast.failedToSave'));
     } finally {
       setSaving(false);
     }
@@ -93,6 +105,15 @@ const AddEditServiceModal: React.FC<AddEditServiceModalProps> = ({ isOpen, onClo
           <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{service ? t('profile.editService') : t('profile.addService')}</h3>
         </div>
         <div className="p-6 space-y-4">
+          {isError && (
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-300">
+              <p>{t('profile.availableServicesLoadFailed')}</p>
+              <button type="button" onClick={() => void refetch()} className="mt-1 font-semibold underline">
+                {t('common.retry')}
+              </button>
+            </div>
+          )}
+          {saveError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{saveError}</p>}
           <div>
             <label className="block text-sm font-medium mb-1.5">{t('profile.serviceName')}</label>
             <SelectWithCreate

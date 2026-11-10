@@ -7,7 +7,7 @@ import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { useData } from '../../../app/providers/DataProvider';
 import { useAdminUsers, useAdminEducationalRequests, useUpdateUserStatus, useDeleteUser } from '../../../core/hooks/useAdminQueries';
 import { formatDate } from '../../../shared/utils';
-import { env } from '../../../core/config/env';
+import { DEFAULT_PAGE_SIZE } from '../../../core/config/pagination';
 
 interface UsersViewProps {
     navigateTo: (view: ViewType, id?: string) => void;
@@ -161,8 +161,11 @@ const UsersView: React.FC<UsersViewProps> = ({ navigateTo }) => {
     const { addToast } = useData();
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
-    const usersQuery = useAdminUsers({ per_page: env.DEFAULT_PAGE_SIZE });
-    const requestsQuery = useAdminEducationalRequests({ per_page: env.DEFAULT_PAGE_SIZE });
+    const usersQuery = useAdminUsers({
+        per_page: DEFAULT_PAGE_SIZE,
+        search: searchTerm.trim() || undefined,
+    });
+    const requestsQuery = useAdminEducationalRequests({ per_page: DEFAULT_PAGE_SIZE });
     const updateStatus = useUpdateUserStatus();
     const deleteUser = useDeleteUser();
     const isRtl = language === 'ar';
@@ -192,7 +195,9 @@ const UsersView: React.FC<UsersViewProps> = ({ navigateTo }) => {
     const usersWithRequestCount = useMemo(() => {
         return users.map(user => ({
             ...user,
-            requestCount: requests.filter((r: any) => r.requesterId === user.id || r.requester_id === user.id).length
+            requestCount: requests.filter((r: any) =>
+                [user.id, user.databaseId].filter(Boolean).includes(String(r.requesterId ?? r.requester_id))
+            ).length
         }));
     }, [users, requests]);
 
@@ -201,7 +206,8 @@ const UsersView: React.FC<UsersViewProps> = ({ navigateTo }) => {
         const q = searchTerm.trim().toLowerCase();
         return usersWithRequestCount.filter(u =>
             u.name.toLowerCase().includes(q) ||
-            u.email.toLowerCase().includes(q)
+            u.email.toLowerCase().includes(q) ||
+            u.phone.toLowerCase().includes(q)
         );
     }, [usersWithRequestCount, searchTerm]);
 

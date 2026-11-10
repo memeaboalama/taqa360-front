@@ -16,6 +16,7 @@ const EditSocialLinksModal: React.FC<EditSocialLinksModalProps> = ({ isOpen, onC
     const { t } = useLanguage();
     const [links, setLinks] = useState<SocialLink[]>(currentLinks);
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [confirmState, setConfirmState] = useState<{ open: boolean; index?: number }>({ open: false });
 
     const platformOptions: { value: SocialLink['platform'], label: string, icon: React.ReactNode }[] = [
@@ -75,10 +76,13 @@ const EditSocialLinksModal: React.FC<EditSocialLinksModalProps> = ({ isOpen, onC
         const cleaned = links
             .map(l => ({ ...l, url: ensureHttp(l.url.trim()), platform: detectPlatform(l.url) }))
             .filter(l => l.url !== '');
+        setSaveError(null);
         setSaving(true);
         try {
             await Promise.resolve(onSubmit(cleaned as any));
             onClose();
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : t('profileSection.toast.failedToSave'));
         } finally {
             setSaving(false);
         }
@@ -86,9 +90,10 @@ const EditSocialLinksModal: React.FC<EditSocialLinksModalProps> = ({ isOpen, onC
 
     return (
         <>
-         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
+         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in" onClick={saving ? undefined : onClose}>
             <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg w-full max-w-lg p-6 animate-fade-in-up" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('profile.editSocialLinks')}</h2>
+                {saveError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{saveError}</p>}
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                     {links.map((link, index) => (
                         <div key={index} className="flex items-center gap-2">

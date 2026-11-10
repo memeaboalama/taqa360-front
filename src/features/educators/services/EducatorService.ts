@@ -1,6 +1,6 @@
 // Using the enterprise base client across the app
 import { apiClient } from '../../../core/api/baseClient';
-import { env } from '../../../core/config/env';
+import { API_BASE_URL } from '../../../core/api/config';
 import {
   Educator,
   EducatorProfile,
@@ -337,26 +337,30 @@ export class EducatorService {
     // allow data:, blob:, http(s):
     if (/^(data:|blob:|https?:)\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url;
     // If already absolute path
-    if (url.startsWith('/')) return `${env.API_BASE_URL}${url}`;
+    if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
     // Otherwise append to API base
-    return `${env.API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
+    return `${API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
   }
 
   private static normalizeAcademicMajors(items: any[]): AcademicMajor[] {
     if (!Array.isArray(items)) return [];
     return items
       .filter(Boolean)
-      .map((item: any, index: number) => ({
-        id: String(item?.id ?? item?.majorId ?? item?.major_id ?? item?.academic_major_id ?? `major-${index}`),
-        majorName: item?.majorName ?? item?.major_name ?? item?.name ?? item?.name?.ar ?? item?.name?.en ?? null,
-        isCustom: Boolean(item?.isCustom ?? item?.is_custom ?? false),
-        institution: item?.institution ?? item?.graduation_institution ?? null,
-        graduationYear: item?.graduationYear ?? item?.graduation_year ?? null,
-        degree: item?.degree ?? null,
-        documentUrl: EducatorService.resolveUrl(item?.documentUrl ?? item?.document_url ?? null),
-        verificationStatus: item?.verificationStatus ?? item?.verification_status ?? 'PENDING',
-        rejectionReason: item?.rejectionReason ?? item?.rejection_reason ?? null,
-      }));
+      .map((item: any, index: number) => {
+        const name = item?.majorName ?? item?.major_name ?? item?.name ?? null;
+        return {
+          id: String(item?.id ?? item?.majorId ?? item?.major_id ?? item?.academic_major_id ?? `major-${index}`),
+          majorName: typeof name === 'object' ? name?.ar ?? name?.en ?? null : name,
+          isCustom: Boolean(item?.isCustom ?? item?.is_custom ?? false),
+          institution: item?.institution ?? item?.graduation_institution ?? null,
+          graduationYear: item?.graduationYear ?? item?.graduation_year ?? null,
+          degree: item?.degree ?? null,
+          documentUrl: EducatorService.resolveUrl(item?.documentUrl ?? item?.document_url ?? null),
+          documentMimeType: item?.documentMimeType ?? item?.document_mime_type ?? item?.mimeType ?? item?.mime_type ?? null,
+          verificationStatus: item?.verificationStatus ?? item?.verification_status ?? 'PENDING',
+          rejectionReason: item?.rejectionReason ?? item?.rejection_reason ?? null,
+        };
+      });
   }
 
   private static normalizeLanguages(items: any[]): Language[] {
@@ -541,6 +545,7 @@ export class EducatorService {
     const response = await apiClient.get<any>('/educator/profile/academic-majors');
     const raw = (response.data as any)?.items
       ?? (response.data as any)?.data?.items
+      ?? (response.data as any)?.academicMajor
       ?? (response.data as any)?.academicMajors
       ?? (response.data as any)?.academic_majors
       ?? response.data
@@ -584,7 +589,9 @@ export class EducatorService {
       response = await apiClient.post<any>('/educator/profile/academic-majors', payload);
     }
 
-    const items = (response.data as any)?.items
+    const items = (response.data as any)?.academicMajor
+      ?? (response.data as any)?.academic_major
+      ?? (response.data as any)?.items
       ?? (response.data as any)?.data?.items
       ?? (response.data as any)?.academicMajors
       ?? (response.data as any)?.academic_majors
@@ -632,7 +639,9 @@ export class EducatorService {
       response = await apiClient.put<any>(`/educator/profile/academic-majors/${id}`, payload);
     }
 
-    const items = (response.data as any)?.items
+    const items = (response.data as any)?.academicMajor
+      ?? (response.data as any)?.academic_major
+      ?? (response.data as any)?.items
       ?? (response.data as any)?.data?.items
       ?? (response.data as any)?.academicMajors
       ?? (response.data as any)?.academic_majors
@@ -650,8 +659,11 @@ export class EducatorService {
   }
 
   static async getOfficialAcademicMajors(): Promise<{ id: string; name: string }[]> {
-    const response = await apiClient.get<any>('/admin/edu/academic-majors');
-    const items = (response.data as any)?.academic_majors ?? (response.data as any)?.data?.academic_majors ?? response.data ?? [];
+    const response = await apiClient.get<any>('/educator/profile/academic-majors/options');
+    const items = (response.data as any)?.academic_majors
+      ?? (response.data as any)?.data?.academic_majors
+      ?? response.data
+      ?? [];
     return Array.isArray(items)
       ? items
           .filter((it: any) => it && (it.status ? String(it.status).toLowerCase() === 'active' : true))
@@ -833,11 +845,16 @@ export class EducatorService {
 
   static async getPaymentInfo(): Promise<PaymentInfo> {
     const response = await apiClient.get<any>('/educator/profile/bank-info');
-    const d: any = (response as any).data ?? response.data;
+    const payload: any = response.data;
+    const d: any = payload?.bankInfo ?? payload?.data?.bankInfo ?? payload;
     const mapped: PaymentInfo = {
       bankName: d?.bank_name || d?.bankName || '',
       accountHolderName: d?.name || d?.accountHolderName || d?.name_on_card || '',
-      iban: d?.iban || ''
+      iban: d?.iban || '',
+      address: d?.address || '',
+      bankCountry: d?.bankCountry || d?.bank_country || '',
+      bankCode: d?.bankCode || d?.bank_code || '',
+      isApproved: Boolean(d?.isApproved ?? d?.is_approved)
     } as any;
     return mapped;
   }
@@ -853,11 +870,16 @@ export class EducatorService {
       is_approved: (info as any).is_approved ?? false
     };
     const response = await apiClient.post<any>('/educator/profile/bank-info', payload);
-    const d: any = (response as any).data ?? response.data;
+    const responsePayload: any = response.data;
+    const d: any = responsePayload?.bankInfo ?? responsePayload?.data?.bankInfo ?? responsePayload;
     const mapped: PaymentInfo = {
       bankName: d?.bank_name || d?.bankName || payload.bank_name,
       accountHolderName: d?.name || d?.accountHolderName || payload.name,
-      iban: d?.iban || payload.iban
+      iban: d?.iban || payload.iban,
+      address: d?.address || payload.address,
+      bankCountry: d?.bankCountry || d?.bank_country || payload.bank_country,
+      bankCode: d?.bankCode || d?.bank_code || payload.bank_code,
+      isApproved: Boolean(d?.isApproved ?? d?.is_approved)
     } as any;
     return mapped;
   }
@@ -934,13 +956,18 @@ export class EducatorService {
     return response.data;
   }
 
-  static async updateTaskStatus(taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED'): Promise<any> {
-    const response = await apiClient.post<any>(`/educator/tasks/${taskId}/status`, { status });
+  static async startTask(taskId: string): Promise<any> {
+    const response = await apiClient.post<any>(`/educator/tasks/${taskId}/start`);
     return response.data;
   }
 
   static async completeTask(taskId: string): Promise<any> {
     const response = await apiClient.post<any>(`/educator/tasks/${taskId}/complete`);
+    return response.data;
+  }
+
+  static async addTaskNote(taskId: string, content: string): Promise<any> {
+    const response = await apiClient.post<any>(`/educator/tasks/${taskId}/notes`, { content });
     return response.data;
   }
 
@@ -1168,16 +1195,16 @@ export class EducatorService {
     await apiClient.delete<any>(`/educator/profile/languages/${id}`);
   }
 
-  static async getAdminSkills(): Promise<{ id: string; name: { en?: string; ar?: string }; status?: string }[]> {
-    const response = await apiClient.get<any>('/admin/edu/skills');
-    const payload: any = (response as any).data ?? response.data;
+  static async getAvailableSkills(): Promise<{ id: string; name: { en?: string; ar?: string }; status?: string }[]> {
+    const response = await apiClient.get<any>('/educator/profile/skills/options');
+    const payload: any = response.data;
     const list: any[] = Array.isArray(payload?.skills) ? payload.skills : Array.isArray(payload?.data?.skills) ? payload.data.skills : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
     return list.filter(Boolean).map((s: any) => ({ id: String(s?.id ?? ''), name: { en: s?.name?.en, ar: s?.name?.ar }, status: s?.status }));
   }
 
-  static async getAdminServices(): Promise<{ id: string; name: string; description?: string }[]> {
-    const response = await apiClient.get<any>('/admin/edu/services');
-    const payload: any = (response as any).data ?? response.data;
+  static async getAvailableServices(): Promise<{ id: string; name: string; description?: string }[]> {
+    const response = await apiClient.get<any>('/educator/profile/services/options');
+    const payload: any = response.data;
     const list: any[] = Array.isArray(payload?.services) ? payload.services : Array.isArray(payload?.data?.services) ? payload.data.services : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
     return list.filter(Boolean).map((s: any) => ({ id: String(s?.id ?? ''), name: String(s?.name ?? ''), description: s?.description }));
   }

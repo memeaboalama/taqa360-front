@@ -1,5 +1,12 @@
 import { apiClient } from '../../core/api/client';
-import { env } from '../../core/config/env';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 
 export interface UploadResponse {
   id: string;
@@ -226,8 +233,8 @@ export class FileService {
    */
   private static validateFile(file: File, category: FileCategory): void {
     // التحقق من الحجم
-    if (file.size > env.MAX_FILE_SIZE) {
-      throw new Error(`حجم الملف كبير جداً. الحد الأقصى هو ${this.formatFileSize(env.MAX_FILE_SIZE)}`);
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`حجم الملف كبير جداً. الحد الأقصى هو ${this.formatFileSize(MAX_FILE_SIZE)}`);
     }
 
     // التحقق من النوع حسب الفئة
@@ -258,14 +265,14 @@ export class FileService {
    * التحقق من أن الملف صورة
    */
   private static isImageFile(file: File): boolean {
-    return env.ALLOWED_IMAGE_TYPES.includes(file.type);
+    return ALLOWED_IMAGE_TYPES.includes(file.type);
   }
 
   /**
    * التحقق من أن الملف مستند
    */
   private static isDocumentFile(file: File): boolean {
-    return env.ALLOWED_DOCUMENT_TYPES.includes(file.type);
+    return ALLOWED_DOCUMENT_TYPES.includes(file.type);
   }
 
   /**
@@ -337,4 +344,3 @@ export class FileService {
     return mimeTypes[extension || ''] || 'application/octet-stream';
   }
 }
-

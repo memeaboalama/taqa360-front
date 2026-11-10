@@ -1,14 +1,36 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { AuthUser, AuthTokens, AuthStatus, AuthState } from '../../../shared/types';
-import { env } from '../../../core/config/env';
+
+const REMEMBER_ME_KEY = 'auth-remember-me';
+const authStateStorage = {
+  getItem: (name: string) => {
+    if (localStorage.getItem(REMEMBER_ME_KEY) === 'false') {
+      return sessionStorage.getItem(name);
+    }
+    return localStorage.getItem(name) ?? sessionStorage.getItem(name);
+  },
+  setItem: (name: string, value: string) => {
+    if (localStorage.getItem(REMEMBER_ME_KEY) === 'false') {
+      sessionStorage.setItem(name, value);
+      localStorage.removeItem(name);
+    } else {
+      localStorage.setItem(name, value);
+      sessionStorage.removeItem(name);
+    }
+  },
+  removeItem: (name: string) => {
+    localStorage.removeItem(name);
+    sessionStorage.removeItem(name);
+  },
+};
 
 interface AuthStore extends AuthState {
   setUser: (user: AuthUser | null) => void;
   setTokens: (tokens: AuthTokens | null) => void;
   setStatus: (status: AuthStatus) => void;
   setLoading: (loading: boolean) => void;
-  login: (user: AuthUser, tokens: AuthTokens) => void;
+  login: (user: AuthUser, tokens: AuthTokens, rememberMe?: boolean) => void;
   logout: () => void;
   updateUser: (userData: Partial<AuthUser>) => void;
   isTokenExpired: () => boolean;
@@ -50,11 +72,16 @@ export const useAuthStore = create<AuthStore>()(
           isLoading,
         })),
 
-      login: (user, tokens) => {
-        localStorage.setItem(env.TOKEN_STORAGE_KEY, tokens.accessToken);
+      login: (user, tokens, rememberMe = true) => {
+        localStorage.setItem(REMEMBER_ME_KEY, String(rememberMe));
+        const tokenStorage = rememberMe ? localStorage : sessionStorage;
+        const otherTokenStorage = rememberMe ? sessionStorage : localStorage;
+        tokenStorage.setItem('auth_token', tokens.accessToken);
         if (tokens.refreshToken) {
-          localStorage.setItem('refresh_token', tokens.refreshToken);
+          tokenStorage.setItem('refresh_token', tokens.refreshToken);
         }
+        otherTokenStorage.removeItem('auth_token');
+        otherTokenStorage.removeItem('refresh_token');
 
         set({
           user,
@@ -66,8 +93,11 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
-        localStorage.removeItem(env.TOKEN_STORAGE_KEY);
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('refresh_token');
+        localStorage.removeItem(REMEMBER_ME_KEY);
 
         set({
           user: null,
@@ -106,6 +136,7 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => authStateStorage),
       partialize: (state) => ({
         user: state.user,
         tokens: state.tokens,

@@ -5,7 +5,6 @@ import StatusUpdateModal from '../components/modals/StatusUpdateModal';
 import ApprovalMessageModal from '../components/modals/ApprovalMessageModal';
 import Avatar from '../../../shared/components/Avatar';
 import AssignmentAgreementModal from '../components/modals/AssignmentAgreementModal';
-import { useMemo, useState } from 'react';
 
 interface BidsViewProps {
   project: Project;
@@ -27,6 +26,12 @@ const RatingStars: React.FC<{ rating: number }> = ({ rating }) => {
     );
 };
 
+export function getAvailableBidActions(status: BidStatus): Array<'reject' | 'approve' | 'assign'> {
+    if (status === BidStatus.PENDING) return ['reject', 'approve', 'assign'];
+    if (status === BidStatus.APPROVED) return ['reject', 'assign'];
+    return [];
+}
+
 const ProviderBidCard: React.FC<{
     bid: Bid;
     bidTask: PricedBidTask;
@@ -37,6 +42,7 @@ const ProviderBidCard: React.FC<{
     if (!educator) return null;
     
     const [action, setAction] = useState<'reject' | 'approve' | 'assign' | null>(null);
+    const availableActions = getAvailableBidActions(bidTask.status);
 
     const handleAction = (newStatus: BidStatus) => {
         const wasApproved = bidTask.status === BidStatus.APPROVED;
@@ -100,12 +106,22 @@ const ProviderBidCard: React.FC<{
             </div>
             <div className="flex-shrink-0 flex items-center justify-center gap-2 w-full sm:w-auto">
                 <button onClick={() => navigateTo('bidDetail', bid.id)} className="p-2 text-xs font-bold text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 rounded-lg"><EyeIcon className="w-4 h-4"/></button>
-                <button onClick={() => handleAction(BidStatus.REJECTED)} className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 rounded-lg">رفض</button>
-                <button onClick={() => handleAction(BidStatus.APPROVED)} className="px-3 py-1.5 text-xs font-bold text-white bg-yellow-50 hover:bg-yellow-100 rounded-lg" style={{ backgroundColor: 'var(--primary-color)', color: 'white' }}>قبول</button>
-                <button onClick={() => handleAction(BidStatus.ASSIGNED)} className="flex items-center px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm">
-                    <UserCheckIcon className="w-4 h-4 me-1" />
-                    تعيين
-                </button>
+                {availableActions.includes('reject') && (
+                    <button onClick={() => handleAction(BidStatus.REJECTED)} className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 rounded-lg">
+                        {bidTask.status === BidStatus.APPROVED ? 'التراجع عن القبول' : 'رفض'}
+                    </button>
+                )}
+                {availableActions.includes('approve') && (
+                    <button onClick={() => handleAction(BidStatus.APPROVED)} className="px-3 py-1.5 text-xs font-bold text-white bg-yellow-50 hover:bg-yellow-100 rounded-lg" style={{ backgroundColor: 'var(--primary-color)', color: 'white' }}>
+                        قبول
+                    </button>
+                )}
+                {availableActions.includes('assign') && (
+                    <button onClick={() => handleAction(BidStatus.ASSIGNED)} className="flex items-center px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm">
+                        <UserCheckIcon className="w-4 h-4 me-1" />
+                        تعيين
+                    </button>
+                )}
             </div>
         </div>
         </>
@@ -264,12 +280,14 @@ const TaskBidsSection: React.FC<{
 
 
 const BidsView: React.FC<BidsViewProps> = ({ project, bids, educators, navigateTo, onUpdateBidTaskStatus, onUpdateTaskBiddingStatus }) => {
-  const publicTasks = project.tasks.filter(task => task.isPublic);
+  const tasksWithOffers = project.tasks.filter(task =>
+    task.isPublic || bids.some(bid => bid.bidTasks.some(bidTask => bidTask.taskId === task.id))
+  );
 
   return (
     <div className="animate-fade-in space-y-6">
-        {publicTasks.length > 0 ? (
-            publicTasks.map(task => (
+        {tasksWithOffers.length > 0 ? (
+            tasksWithOffers.map(task => (
                 <TaskBidsSection 
                     key={task.id}
                     task={task}

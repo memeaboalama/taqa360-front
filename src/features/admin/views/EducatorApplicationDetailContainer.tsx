@@ -4,6 +4,7 @@ import {
   useAcceptEducatorAccount,
   useRejectEducatorAccount,
   useApproveEducatorIdentity,
+  useSendEducatorVerificationReminder,
   useRejectEducatorIdentity,
   useApproveAcademicMajor,
   useRejectAcademicMajor,
@@ -339,6 +340,7 @@ const EducatorApplicationDetailContainer: React.FC<Props> = ({
   const acceptAccount = useAcceptEducatorAccount();
   const rejectAccount = useRejectEducatorAccount();
   const approveIdentity = useApproveEducatorIdentity();
+  const sendVerificationReminder = useSendEducatorVerificationReminder();
   const rejectIdentity = useRejectEducatorIdentity();
   const approveMajor = useApproveAcademicMajor();
   const rejectMajor = useRejectAcademicMajor();
@@ -835,14 +837,34 @@ const EducatorApplicationDetailContainer: React.FC<Props> = ({
                       رفض الهوية
                     </button>
                     <button
+                      type="button"
+                      disabled={approveIdentity.isPending}
                       onClick={async () => { try { await approveIdentity.mutateAsync(educator.id); setIdentityApproved(true); setIdentityRejected(false); addToast('تم توثيق الهوية', 'success'); } catch (e: any) { addToast(e?.response?.data?.message || e?.message || 'فشل توثيق الهوية', 'error'); } }}
-                      className="px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60"
                     >
-                      تأكيد التحقق
+                      {approveIdentity.isPending && <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                      {approveIdentity.isPending ? 'جارٍ تأكيد التحقق...' : 'تأكيد التحقق'}
                     </button>
                   </>
                 )}
               </div>
+              {mode === 'profile' && !isIdentityVerified && (
+                <button
+                  type="button"
+                  disabled={sendVerificationReminder.isPending}
+                  onClick={async () => {
+                    try {
+                      await sendVerificationReminder.mutateAsync(educator.id);
+                      addToast('تم إرسال تنبيه التوثيق بنجاح', 'success');
+                    } catch (e: any) {
+                      addToast(e?.response?.data?.message || e?.message || 'تعذر إرسال تنبيه التوثيق', 'error');
+                    }
+                  }}
+                  className="mt-3 w-full px-4 py-2 rounded-lg border border-amber-300 text-amber-700 font-semibold hover:bg-amber-50 disabled:opacity-60 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20"
+                >
+                  {sendVerificationReminder.isPending ? 'جارٍ إرسال التنبيه...' : 'إرسال تنبيه التوثيق'}
+                </button>
+              )}
             </div>
           </aside>
         </div>

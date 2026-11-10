@@ -3,8 +3,8 @@ import { Educator, EducatorStatus, ViewType } from '../../../shared/types';
 import { StarIcon, PlusIcon, SearchIcon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import Avatar from '../../../shared/components/Avatar';
-import { useAdminEducators } from '../../../core/hooks/useAdminQueries';
-import { env } from '../../../core/config/env';
+import { useAdminEducatorInvitations, useAdminEducators } from '../../../core/hooks/useAdminQueries';
+import { DEFAULT_PAGE_SIZE } from '../../../core/config/pagination';
 
 interface EducatorsViewProps {
     onInvite: () => void;
@@ -33,6 +33,15 @@ const getStatusInfo = (status: EducatorStatus, t: (key: string) => string) => {
     }
 };
 
+const getEducatorSpecialty = (educator: Educator): string =>
+    educator.discipline || educator.academicMajors?.find(major => major.majorName)?.majorName || 'غير محدد';
+
+const EducatorIdentifiers: React.FC<{ educator: Educator; className?: string }> = ({ educator, className = '' }) => (
+    <div className={`text-xs text-slate-500 dark:text-slate-400 ${className}`}>
+        <div className="truncate">{educator.email || 'البريد الإلكتروني غير متوفر'}</div>
+    </div>
+);
+
 const EducatorCard: React.FC<{ educator: Educator, navigateTo: (view: ViewType, id: string) => void; }> = ({ educator, navigateTo }) => {
     const { t } = useLanguage();
     const statusInfo = getStatusInfo(educator.status, t);
@@ -40,7 +49,8 @@ const EducatorCard: React.FC<{ educator: Educator, navigateTo: (view: ViewType, 
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-5 text-center transition-transform transform hover:-translate-y-1 border border-gray-200 dark:border-gray-700 flex flex-col">
             <Avatar src={educator.avatarUrl} name={educator.name} size={80} className="mx-auto mb-3 rounded-full border-4 border-gray-200 dark:border-gray-700" />
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{educator.name}</h3>
-            <p className="text-sm text-brand-primary flex-grow">{educator.discipline}</p>
+            <p className="text-sm text-brand-primary">{getEducatorSpecialty(educator)}</p>
+            <EducatorIdentifiers educator={educator} className="mt-1" />
             <div className="my-3 flex justify-center">
                 <RatingStars rating={educator.rating} />
             </div>
@@ -57,23 +67,32 @@ const EducatorCard: React.FC<{ educator: Educator, navigateTo: (view: ViewType, 
 };
 
 const EducatorsView: React.FC<EducatorsViewProps> = ({ onInvite, navigateTo }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState<'grid'|'list'|'compact'>('compact');
 
-    const educatorsQuery = useAdminEducators({ paginated: "true" as const, per_page: env.DEFAULT_PAGE_SIZE });
+    const educatorsQuery = useAdminEducators({ per_page: DEFAULT_PAGE_SIZE });
+    const invitationsQuery = useAdminEducatorInvitations();
+    const invitations = invitationsQuery.data ?? [];
     const educators = Array.isArray(educatorsQuery.data) ? (educatorsQuery.data as Educator[]) : ((educatorsQuery.data as any)?.educators || []) as Educator[];
+    const formatInvitationDate = (value: string | null) => value
+        ? new Date(value).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')
+        : '—';
 
     const filteredEducators = useMemo(() => {
         const list = (educators || []).map((e: any) => ({
             ...e,
             status: (e.status || '').toString().toUpperCase(),
-            discipline: e.discipline || '',
+            discipline: getEducatorSpecialty(e),
             name: e.name || ''
         }));
         const visible = list.filter((e: any) => e.status === 'ACTIVE');
         return visible.filter((e: any) =>
-            (searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()) || e.discipline.toLowerCase().includes(searchTerm.toLowerCase()))
+            (searchTerm === '' ||
+                e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                e.discipline.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.id || '').toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [educators, searchTerm]);
 
@@ -107,6 +126,74 @@ const EducatorsView: React.FC<EducatorsViewProps> = ({ onInvite, navigateTo }) =
                  </div>
             </div>
 
+            <section className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
+                <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                    <h2 className="font-bold text-gray-900 dark:text-white">{t('educatorsView.invitationTracking')}</h2>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('educatorsView.invitationTrackingNote')}</p>
+                </div>
+                {invitationsQuery.isLoading ? (
+                    <p className="p-5 text-sm text-gray-500">{t('loading')}</p>
+                ) : invitationsQuery.isError ? (
+                    <div className="flex items-center justify-between gap-3 p-5 text-sm text-red-700 dark:text-red-300" role="alert">
+                        <span>{t('educatorsView.invitationsLoadError')}</span>
+                        <button type="button" onClick={() => invitationsQuery.refetch()} className="font-semibold underline">{t('retry')}</button>
+                    </div>
+                ) : invitations.length === 0 ? (
+                    <p className="p-5 text-sm text-gray-500 dark:text-gray-400">{t('educatorsView.noInvitations')}</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[760px] text-start text-sm">
+                            <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-slate-700/50 dark:text-gray-300">
+                                <tr>
+                                    <th className="px-5 py-3">{t('educatorsView.invitationEmail')}</th>
+                                    <th className="px-5 py-3">{t('educatorsView.invitationStatus')}</th>
+                                    <th className="px-5 py-3">{t('educatorsView.invitationSentAt')}</th>
+                                    <th className="px-5 py-3">{t('educatorsView.invitationExpiresAt')}</th>
+                                    <th className="px-5 py-3">{t('educatorsView.invitationCompletedAt')}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {invitations.map(invitation => {
+                                    const invitedEducator = invitation.educator;
+                                    const statusLabel = invitation.status === 'completed'
+                                        ? t('educatorsView.invitationCompleted')
+                                        : invitation.status === 'expired'
+                                            ? t('educatorsView.invitationExpired')
+                                            : t('educatorsView.invitationPending');
+                                    const statusClass = invitation.status === 'completed'
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                                        : invitation.status === 'expired'
+                                            ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
+
+                                    return (
+                                        <tr key={invitation.id} className="text-gray-700 dark:text-gray-200">
+                                            <td className="px-5 py-3">{invitation.email}</td>
+                                            <td className="px-5 py-3">
+                                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
+                                            </td>
+                                            <td className="px-5 py-3">{formatInvitationDate(invitation.sent_at)}</td>
+                                            <td className="px-5 py-3">{formatInvitationDate(invitation.expires_at)}</td>
+                                            <td className="px-5 py-3">
+                                                {invitedEducator ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigateTo('educatorDetail', String(invitedEducator.id))}
+                                                        className="text-brand-primary underline underline-offset-2"
+                                                    >
+                                                        {invitedEducator.name} · {t('educatorsView.openInvitedAccount')}
+                                                    </button>
+                                                ) : invitation.completed_at ? formatInvitationDate(invitation.completed_at) : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+
             {educatorsQuery.isLoading ? (
               <div className="text-center py-10 col-span-full">
                 <div className="inline-block animate-spin rounded-full h-6 w-6" style={{ borderBottom: '2px solid var(--primary-color)' }}></div>
@@ -131,7 +218,7 @@ const EducatorsView: React.FC<EducatorsViewProps> = ({ onInvite, navigateTo }) =
                               <span className="font-semibold text-brand-dark dark:text-white truncate">{ed.name}</span>
                               <span className="text-xs text-slate-500">{ed.discipline}</span>
                             </div>
-                            <div className="text-sm text-slate-500 truncate">{ed.email} • {ed.country}</div>
+                            <EducatorIdentifiers educator={ed} />
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -152,6 +239,7 @@ const EducatorsView: React.FC<EducatorsViewProps> = ({ onInvite, navigateTo }) =
                             <div className="min-w-0">
                               <div className="font-semibold text-sm text-brand-dark dark:text-white truncate">{ed.name}</div>
                               <div className="text-xs text-slate-500 truncate">{ed.discipline}</div>
+                              <EducatorIdentifiers educator={ed} className="mt-1" />
                             </div>
                             <span className={`px-2 py-0.5 text-[11px] rounded-full ${getStatusInfo(ed.status as EducatorStatus, t).class}`}>{getStatusInfo(ed.status as EducatorStatus, t).text}</span>
                           </div>

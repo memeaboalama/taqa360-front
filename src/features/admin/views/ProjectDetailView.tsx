@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Project, Task, ProjectStatus, Educator, Assignment, AssignmentType, AssignmentStatus, ProjectCreationType, Bid, EducationalRequest, User, ViewType, BidStatus } from '../../../shared/types';
+import { Project, Task, ProjectStatus, Educator, Assignment, AssignmentType, AssignmentStatus, Bid, EducationalRequest, User, ViewType, BidStatus } from '../../../shared/types';
 import { ClockIcon, CheckCircleIcon, PlusIcon, EditIcon, DollarSignIcon, TrashIcon, BidsIcon, ArrowLeftIcon, ArrowRightIcon, UsersIcon, BriefcaseIcon, LinkIcon, BookOpenIcon, TrendingUpIcon, LockClosedIcon, LockOpenIcon, PaperclipIcon, CheckIcon } from '../../../shared/components/Icons';
 import AddTaskModal from '../components/modals/AddTaskModal';
 import Avatar from '../../../shared/components/Avatar';
@@ -33,6 +33,7 @@ interface ProjectDetailViewProps {
     onDeleteTask: (projectId: string, taskId: string, reason: string) => void;
     onToggleProjectPublication: (projectId: string, reason?: string) => void | Promise<any>;
     isSavingProject?: boolean;
+    isTogglingPublication?: boolean;
 }
 
 const TaskCard: React.FC<{
@@ -168,11 +169,11 @@ const TaskCard: React.FC<{
         }
     };
 
-    const taskStatusActions = [
-        { status: ProjectStatus.IN_PROGRESS, label: "بدء التنفيذ" },
-        { status: ProjectStatus.COMPLETED, label: "إكمال" },
-        { status: ProjectStatus.PENDING, label: "إعادة للانتظار" },
-    ];
+    const taskStatusActions = task.status === ProjectStatus.PENDING
+        ? [{ status: ProjectStatus.IN_PROGRESS, label: "بدء التنفيذ" }]
+        : task.status === ProjectStatus.IN_PROGRESS
+          ? [{ status: ProjectStatus.COMPLETED, label: "إكمال" }]
+          : [];
 
     return (
         <>
@@ -364,7 +365,7 @@ const TaskCard: React.FC<{
 
 
 const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
-    const { project, bids, educators, educationalRequests, users, navigateTo, onAddTask, onUpdateProjectStatus, onToggleProjectPublication, isSavingProject, ...taskProps } = props;
+    const { project, bids, educators, educationalRequests, users, navigateTo, onAddTask, onUpdateProjectStatus, onToggleProjectPublication, isSavingProject, isTogglingPublication, ...taskProps } = props;
     const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'attachments' | 'deliverables' | 'bids' | 'activity'>('tasks');
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -499,12 +500,16 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
                             <button onClick={() => setIsEditProjectModalOpen(true)} className="w-full p-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
                                 <EditIcon className="w-5 h-5" /> {t('modals.editProjectTitle')}
                             </button>
-                            {project.creationType === ProjectCreationType.PUBLIC && (
-                                <button onClick={handlePublicationToggleRequest} className={`w-full p-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${project.isPublished ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                            <div role="status" aria-live="polite" className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-700/50">
+                                <span className="font-semibold text-gray-600 dark:text-gray-300">استقبال العروض</span>
+                                <span className={`font-bold ${project.isPublished ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                    {project.isPublished ? 'مفتوح' : 'متوقف'}
+                                </span>
+                            </div>
+                            <button onClick={handlePublicationToggleRequest} disabled={isTogglingPublication} aria-pressed={project.isPublished} className={`w-full p-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60 ${project.isPublished ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
                                     {project.isPublished ? <LockClosedIcon className="w-5 h-5" /> : <LockOpenIcon className="w-5 h-5" />}
                                     {project.isPublished ? 'إيقاف استقبال العروض' : 'نشر المشروع للعروض'}
-                                </button>
-                            )}
+                            </button>
                         </div>
 
                         {linkedRequest && requester && (
@@ -542,9 +547,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
                                 <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'overview' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><TrendingUpIcon className="w-5 h-5" />نظرة عامة</button>
                                 <button onClick={() => setActiveTab('tasks')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'tasks' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><BriefcaseIcon className="w-5 h-5" />المهام ({projectTasks.length})</button>
                                 <button onClick={() => setActiveTab('attachments')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'attachments' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><PaperclipIcon className="w-5 h-5" />المرفقات</button>
-                                {project.creationType === ProjectCreationType.PUBLIC && (
-                                    <button onClick={() => setActiveTab('bids')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'bids' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><BidsIcon className="w-5 h-5" />عروض المهام ({bids.length})</button>
-                                )}
+                                <button onClick={() => setActiveTab('bids')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'bids' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><BidsIcon className="w-5 h-5" />عروض المهام ({bids.length})</button>
                                 <button onClick={() => setActiveTab('deliverables')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'deliverables' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><CheckCircleIcon className="w-5 h-5" />ملفات التسليم</button>
                                 <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 px-3 py-2 font-medium text-sm rounded-t-lg ${activeTab === 'activity' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}><ClockIcon className="w-5 h-5" />سجل الأحداث{(project.activityLog?.length ?? 0) > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-primary/15 text-brand-primary">{project.activityLog.length}</span>}</button>
                             </nav>

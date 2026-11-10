@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ViewType } from '../../../shared/types';
-import { DashboardIcon, BookOpenIcon, AcademicCapIcon, UsersIcon, UserCheckIcon, SettingsIcon, XIcon, ProjectsIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
+import { DashboardIcon, AcademicCapIcon, UsersIcon, UserCheckIcon, SettingsIcon, XIcon, ProjectsIcon, ChevronDownIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import { isProjectAreaView, PROJECT_SIDEBAR_SECTIONS } from '../constants/projectSections';
+import { useAdminProjectTabCounts } from '../../../core/hooks/useAdminQueries';
 
 interface AdminMobileMenuProps {
     isOpen: boolean;
@@ -16,7 +18,8 @@ const NavLink: React.FC<{
   label: string;
   isActive: boolean;
   onClick: () => void;
-}> = ({ icon, label, isActive, onClick }) => (
+  count?: number;
+}> = ({ icon, label, isActive, onClick, count }) => (
   <li>
     <button
       onClick={onClick}
@@ -26,6 +29,11 @@ const NavLink: React.FC<{
     >
       {icon}
       <span className="ms-4 font-semibold">{label}</span>
+      {count !== undefined && (
+        <span className={`ms-auto min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+          {count}
+        </span>
+      )}
     </button>
   </li>
 );
@@ -36,12 +44,19 @@ const MenuHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({ isOpen, onClose, currentView, navigateTo, onLogout }) => {
     const { t, language, toggleLanguage } = useLanguage();
-    const isProjectsActive = ['projects', 'projectDetail', 'createProject', 'bidDetail', 'taskDetail'].includes(currentView);
+    const isProjectActive = isProjectAreaView(currentView);
+    const [projectsOpen, setProjectsOpen] = useState(isProjectActive);
+    const projectCountsQuery = useAdminProjectTabCounts();
+    const projectCounts = projectCountsQuery.data?.counts ?? {};
     const isRequestsActive = ['educationalRequests', 'requestDetail'].includes(currentView);
     const isEducatorsActive = ['educators', 'educatorApplications', 'educatorApplicationDetail', 'rejectedEducators'].includes(currentView);
     const isUsersActive = ['users', 'userDetail'].includes(currentView);
     const isFinanceActive = ['finance', 'invoiceDetail'].includes(currentView);
     const isSupportActive = ['support', 'supportTicketDetail'].includes(currentView);
+
+    useEffect(() => {
+        if (isProjectActive) setProjectsOpen(true);
+    }, [isProjectActive]);
 
     return (
         <>
@@ -67,7 +82,39 @@ const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({ isOpen, onClose, curr
                     <ul className="space-y-2">
                          <MenuHeader>{t('mainMenu')}</MenuHeader>
                          <NavLink icon={<DashboardIcon className="w-6 h-6" />} label={t('dashboard')} isActive={currentView === 'dashboard'} onClick={() => navigateTo('dashboard')} />
-                         <NavLink icon={<BookOpenIcon className="w-6 h-6" />} label={t('projects')} isActive={isProjectsActive} onClick={() => navigateTo('projects')} />
+                         <li>
+                             <button
+                                 type="button"
+                                 aria-expanded={projectsOpen}
+                                 onClick={() => setProjectsOpen((open) => !open)}
+                                 className={`flex items-center justify-between w-full p-3 rounded-lg text-base transition-colors duration-200 ${
+                                     isProjectActive ? 'bg-brand-primary/10 text-brand-primary dark:bg-gray-700 dark:text-gray-200' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                 }`}
+                             >
+                                 <span className="flex items-center">
+                                     <ProjectsIcon className="w-6 h-6" />
+                                     <span className="ms-4 font-semibold">{t('projectsView.title')}</span>
+                                 </span>
+                                 <ChevronDownIcon className={`w-5 h-5 transition-transform ${projectsOpen ? 'rotate-180' : ''}`} />
+                             </button>
+                             {projectsOpen && (
+                                 <ul className="pt-2 ps-4 space-y-2">
+                                     {PROJECT_SIDEBAR_SECTIONS.map((section) => {
+                                         const SectionIcon = section.icon;
+                                         return (
+                                             <NavLink
+                                                 key={section.view}
+                                                 icon={<SectionIcon className="w-5 h-5" />}
+                                                 label={t(section.labelKey)}
+                                                 isActive={currentView === section.view}
+                                                 onClick={() => navigateTo(section.view)}
+                                                 count={projectCounts[section.key]}
+                                             />
+                                         );
+                                     })}
+                                 </ul>
+                             )}
+                         </li>
                          <NavLink icon={<UserCheckIcon className="w-6 h-6" />} label={t('requests')} isActive={isRequestsActive} onClick={() => navigateTo('educationalRequests')} />
                          <NavLink icon={<AcademicCapIcon className="w-6 h-6" />} label={t('educators')} isActive={isEducatorsActive} onClick={() => navigateTo('educators')} />
                          <NavLink icon={<UsersIcon className="w-6 h-6" />} label={t('users')} isActive={isUsersActive} onClick={() => navigateTo('users')} />

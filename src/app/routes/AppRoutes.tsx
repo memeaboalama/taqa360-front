@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useData } from '../providers/DataProvider';
+import { useLanguage } from '../providers/LanguageProvider';
 import AdminApp from '../../features/admin/AdminApp';
 import { EducatorApp } from '../../features/educator/EducatorApp';
 import AdminAuthFlow from '../../features/auth/components/AdminAuthFlow';
 import EducatorAuthFlow from '../../features/auth/components/EducatorAuthFlow';
 import PendingApprovalScreen from '../../features/auth/components/PendingApprovalScreen';
 import { Educator, EducatorViewType } from '../../shared/types';
+import ConfirmationModal from '../../shared/components/modals/ConfirmationModal';
+import { LogoutIcon } from '../../shared/components/Icons';
 import {
   goToAdminLogin,
   goToEducatorLogin,
@@ -27,8 +30,8 @@ const LoggedOutShell: React.FC<{
 
   // Default to educator login for the public root. Admin has its own /admin path.
   const [route, setRoute] = useState<string>(() => {
-    // return 'admin-auth';
-    return 'educator-auth';
+    return 'admin-auth';
+    // return 'educator-auth';
   });
 
   const [startAuthView, setStartAuthView] = useState<'educator-login' | 'register'>(() => {
@@ -216,47 +219,68 @@ const AdminContainer: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
 const AppRoutes: React.FC = () => {
   const { authStatus, userRole, currentUser, logout } = useAuth();
+  const { t } = useLanguage();
+  const [logoutConfirmationOpen, setLogoutConfirmationOpen] = useState(false);
+  const requestLogout = () => setLogoutConfirmationOpen(true);
+  const confirmLogout = async () => {
+    await logout();
+    setLogoutConfirmationOpen(false);
+  };
+  const withLogoutConfirmation = (content: React.ReactNode) => (
+    <>
+      {content}
+      <ConfirmationModal
+        isOpen={logoutConfirmationOpen}
+        onClose={() => setLogoutConfirmationOpen(false)}
+        onConfirm={confirmLogout}
+        title={t('logout.confirmTitle')}
+        message={t('logout.confirmMessage')}
+        confirmText={t('logout')}
+        icon={<LogoutIcon className="w-7 h-7" />}
+      />
+    </>
+  );
 
   const hasInviteToken = new URLSearchParams(window.location.search).has('token');
 
   // An invitation link only forces the register flow for logged-out users;
   // an already-authenticated session must keep its dashboard.
   if (hasInviteToken && authStatus !== 'loggedIn') {
-    return (
+    return withLogoutConfirmation(
       <div className="min-h-screen font-sans">
-        <LoggedOutShell authStatus="register" onLogout={logout} />
+        <LoggedOutShell authStatus="register" onLogout={requestLogout} />
       </div>
     );
   }
 
   if (authStatus !== 'loggedIn' || !userRole) {
-    return (
+    return withLogoutConfirmation(
       <div className="min-h-screen font-sans">
-        <LoggedOutShell authStatus={authStatus} onLogout={logout} />
+        <LoggedOutShell authStatus={authStatus} onLogout={requestLogout} />
       </div>
     );
   }
 
   if (userRole === 'admin') {
-    return <AdminContainer onLogout={logout} />;
+    return withLogoutConfirmation(<AdminContainer onLogout={requestLogout} />);
   }
 
   if (userRole === 'educator') {
     if (!currentUser) {
-      return (
+      return withLogoutConfirmation(
         <div className="min-h-screen flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center shadow-xl">
             <h2 className="text-lg font-extrabold mb-2">تعذر تحميل لوحة المتخصص</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">حدثت مشكلة أثناء تحميل بيانات الحساب. يرجى المحاولة مرة أخرى.</p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => window.location.reload()} className="px-4 py-2 text-sm font-semibold text-white bg-brand-primary rounded-lg">إعادة المحاولة</button>
-              <button onClick={logout} className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-lg">تسجيل الخروج</button>
+              <button onClick={requestLogout} className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-lg">تسجيل الخروج</button>
             </div>
           </div>
         </div>
       );
     }
-    return <EducatorContainer currentUser={currentUser as Educator} onLogout={logout} />;
+    return withLogoutConfirmation(<EducatorContainer currentUser={currentUser as Educator} onLogout={requestLogout} />);
   }
 
   return null;

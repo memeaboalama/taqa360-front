@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ViewType } from '../../../shared/types';
-import { env } from '../../../core/config/env';
+import { DEFAULT_PAGE_SIZE } from '../../../core/config/pagination';
 import { useAdminEducators } from '../../../core/hooks/useAdminQueries';
 import { useAdminEducatorApplications } from '../hooks/useAdminQueries';
 import RejectedEducatorsView, { RejectedEducatorRecord } from './RejectedEducatorsView';
@@ -48,8 +48,8 @@ const pickReason = (...values: Array<unknown>): string | null => {
 const RejectedEducatorsContainer: React.FC<Props> = ({ navigateTo }) => {
   const [query, setQuery] = useState('');
 
-  const educatorsQuery = useAdminEducators({ paginated: 'true' as const, per_page: env.DEFAULT_PAGE_SIZE, status: 'rejected' as any });
-  const applicationsQuery = useAdminEducatorApplications({ per_page: env.DEFAULT_PAGE_SIZE, status: 'rejected' as any });
+  const educatorsQuery = useAdminEducators({ paginated: 'true' as const, per_page: DEFAULT_PAGE_SIZE, status: 'rejected' as any });
+  const applicationsQuery = useAdminEducatorApplications({ per_page: DEFAULT_PAGE_SIZE, status: 'rejected' as any });
 
   const educators = useMemo(() => toArray(educatorsQuery.data), [educatorsQuery.data]);
   const applications = useMemo(() => toArray(applicationsQuery.data), [applicationsQuery.data]);

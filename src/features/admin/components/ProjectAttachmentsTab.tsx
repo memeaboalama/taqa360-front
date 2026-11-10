@@ -85,7 +85,7 @@ const AttachmentItemDisplay: React.FC<{
                 <div className="relative">
                   <input
                     type="file"
-                    accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip"
+                    accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.pdf,.doc,.docx,.zip"
                     onChange={(e) => onEditChange('file', e.target.files?.[0] || null)}
                     className="w-full px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary dark:file:bg-brand-primary/20/20 dark:file:text-brand-accent"
                   />
@@ -395,7 +395,7 @@ const ProjectAttachmentsTab: React.FC<Props> = ({ projectId }) => {
                   <div className="relative">
                     <input
                       type="file"
-                      accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip"
+                      accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.pdf,.doc,.docx,.zip"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         setAddFile(file);
