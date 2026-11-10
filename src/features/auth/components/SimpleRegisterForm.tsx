@@ -210,7 +210,7 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
                 <div>
                   <label className="flex items-center gap-3">
                     <input type="checkbox" {...register('agreeToTerms', { required: language === 'ar' ? 'يجب الموافقة على الشروط والأحكام' : 'You must agree to the terms' })} className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{language === 'ar' ? 'أوافق على ' : 'I agree to '}<a href="/terms" style={{ color: '#306FAA' }}>{language === 'ar' ? 'الشروط والأحكام' : 'terms and conditions'}</a></span>
+                    <span className="text-sm">{language === 'ar' ? 'أوافق على ' : 'I agree to '}<a href="/terms" style={{ color: 'var(--primary-color)' }}>{language === 'ar' ? 'الشروط والأحكام' : 'terms and conditions'}</a></span>
                   </label>
                   {errors.agreeToTerms && <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms.message}</p>}
                 </div>
@@ -225,7 +225,7 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
                 </button>
 
                 <div className="mt-4 text-center">
-                  <p className="text-sm">{language === 'ar' ? 'لديك حساب بالفعل' : 'Already have an account?'} <button type="button" onClick={onNavigateToLogin} className="font-medium" style={{ color: '#306FAA' }}>{t('login')}</button></p>
+                  <p className="text-sm">{language === 'ar' ? 'لديك حساب بالفعل' : 'Already have an account?'} <button type="button" onClick={onNavigateToLogin} className="font-medium" style={{ color: 'var(--primary-color)' }}>{t('login')}</button></p>
                 </div>
               </form>
             </>

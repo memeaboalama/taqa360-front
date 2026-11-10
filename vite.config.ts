@@ -1,33 +1,23 @@
 import path from 'path';
-import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const apiUrlLine = readFileSync(path.resolve(__dirname, 'env'), 'utf8')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => !line.startsWith('#'))
-      .filter((line) => /^VITE_API_BASE_URL\s*=/.test(line))
-      .pop();
-
-    if (!apiUrlLine) {
-      throw new Error('VITE_API_BASE_URL is missing from the env file.');
-    }
-
-    const apiBaseUrl = apiUrlLine
-      .replace(/^VITE_API_BASE_URL\s*=\s*/, '')
-      .replace(/,$/, '')
-      .replace(/^(['"])(.*)\1$/, '$2')
-      .trim();
+    const apiBaseUrl = env.VITE_API_BASE_URL?.trim();
+    const brand = env.VITE_BRAND?.trim();
 
     if (!apiBaseUrl) {
-      throw new Error('VITE_API_BASE_URL in the env file must not be empty.');
+      throw new Error(`VITE_API_BASE_URL is missing from .env.${mode}.`);
+    }
+
+    if (brand !== 'taqa360' && brand !== 'huloolcom') {
+      throw new Error(`VITE_BRAND in .env.${mode} must be taqa360 or huloolcom.`);
     }
 
     return {
       define: {
         __API_BASE_URL__: JSON.stringify(apiBaseUrl),
+        __APP_BRAND__: JSON.stringify(brand),
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },

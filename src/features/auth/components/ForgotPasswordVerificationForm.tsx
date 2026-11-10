@@ -123,7 +123,7 @@ const ForgotPasswordVerificationForm: React.FC<ForgotPasswordVerificationFormPro
   return (
     <div>
       <style>{`
-        :root { --primary-color: #306FAA; --primary-hover: #245C8E; --light-bg-color: #F2F2F3; --dark-text-color: #333333; --primary-rgb: 48, 111, 170; }
+        :root { --light-bg-color: #F2F2F3; --dark-text-color: #333333; }
         body { font-family: 'Cairo', sans-serif; background-color: var(--light-bg-color); color: var(--dark-text-color); }
         .register-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 20px); background: var(--light-bg-color); }
         .card { background-color: white; padding: 16px; border-radius: 12px; box-shadow: 0 12px 30px rgba(16,24,40,0.06); width: 100%; max-width: 380px; }
@@ -188,7 +188,7 @@ const ForgotPasswordVerificationForm: React.FC<ForgotPasswordVerificationFormPro
                   onClick={handleResend}
                   disabled={isResending}
                   className="text-sm font-medium hover:underline disabled:opacity-50"
-                  style={{ color: '#306FAA' }}
+                  style={{ color: 'var(--primary-color)' }}
                 >
                   {isResending ? t('verification.resending') : t('verification.resend')}
                 </button>
@@ -205,7 +205,7 @@ const ForgotPasswordVerificationForm: React.FC<ForgotPasswordVerificationFormPro
               onClick={() => handleVerification(code.join(''))}
               disabled={isVerifyResetCodePending || code.some(digit => !digit)}
               className="w-full py-3 px-5 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
-              style={{ backgroundColor: 'var(--primary-color)', boxShadow: '0 4px 6px -1px rgba(48, 111, 170, 0.2)' }}
+              style={{ backgroundColor: 'var(--primary-color)', boxShadow: '0 4px 6px -1px rgba(var(--primary-rgb), 0.2)' }}
             >
               {isVerifyResetCodePending ? (
                 <div className="flex items-center justify-center gap-2">
