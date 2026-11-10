@@ -3,6 +3,7 @@ import { Assignment, AssignmentStatus } from '../../../../shared/types';
 import { XIcon, CheckCircleIcon } from '../../../../shared/components/Icons';
 import { useAcceptAssignment, useRejectAssignment, useUpdateAssignmentStatus } from '../../../projects/hooks/useProjectQueries';
 import { useData } from '../../../../app/providers/DataProvider';
+import { useLanguage } from '../../../../app/providers/LanguageProvider';
 
 interface EditAssignmentModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const toStatusEnum = (value: string | null | undefined): AssignmentStatus => {
 
 const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClose, taskId, projectId, assignment }) => {
   const { addToast } = useData();
+  const { t } = useLanguage();
   const [status, setStatus] = useState<AssignmentStatus>(AssignmentStatus.PENDING);
   const [reason, setReason] = useState<string>('');
   const [message, setMessage] = useState<string>('');
@@ -47,6 +49,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
   const updateStatusMutation = useUpdateAssignmentStatus({ onSuccess: handleSuccess, onError: handleError });
 
   const isSubmitting = useMemo(() => acceptMutation.isPending || rejectMutation.isPending || updateStatusMutation.isPending, [acceptMutation.isPending, rejectMutation.isPending, updateStatusMutation.isPending]);
+  const isCancelled = toStatusEnum(assignment.status) === AssignmentStatus.CANCELLED;
 
   // Re-seed the form every time the modal opens (or the assignment changes).
   useEffect(() => {
@@ -67,11 +70,14 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
 
     const trimmedReason = reason.trim();
     const trimmedMessage = message.trim();
+    const currentStatus = toStatusEnum(assignment.status);
+    const canUseDecisionEndpoint = currentStatus !== AssignmentStatus.CANCELLED
+      && currentStatus !== AssignmentStatus.COMPLETED;
 
     // Both boxes are editable for every status, so BOTH must be sent on every
     // branch. Sending only the field that matches the status silently dropped
     // the other one.
-    if (status === AssignmentStatus.REJECTED) {
+    if (status === AssignmentStatus.REJECTED && canUseDecisionEndpoint) {
       rejectMutation.mutate({
         assignmentId: assignment.id,
         reason: trimmedReason || undefined,
@@ -79,7 +85,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
         taskId,
         projectId,
       });
-    } else if (status === AssignmentStatus.ACCEPTED) {
+    } else if (status === AssignmentStatus.ACCEPTED && canUseDecisionEndpoint) {
       acceptMutation.mutate({
         assignment_id: assignment.id,
         agreement_notes: trimmedMessage || undefined,
@@ -126,14 +132,15 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ isOpen, onClo
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">الحالة الجديدة</label>
             <div className="grid grid-cols-3 gap-2">
-              {[AssignmentStatus.ACCEPTED, AssignmentStatus.PENDING, AssignmentStatus.REJECTED].map(s => (
+              {Object.values(AssignmentStatus).map(s => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setStatus(s)}
-                  className={`px-3 py-2 text-sm font-semibold rounded-lg border dark:border-gray-600 ${status === s ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                  disabled={isCancelled && s !== AssignmentStatus.CANCELLED}
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border dark:border-gray-600 ${status === s ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'} disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  {s}
+                  {t(`status.${s}`)}
                 </button>
               ))}
             </div>

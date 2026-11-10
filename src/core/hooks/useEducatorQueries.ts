@@ -82,11 +82,14 @@ export function useUpdateAvailabilityStatus() {
 // so invalidating 'educator-dashboard' never matched it and the invitation list
 // stayed stale after a decision. Its staleTime is 60s, so it must be invalidated
 // explicitly or the dashboard will not refresh on its own.
-const invalidateAfterAssignmentDecision = (queryClient: any) => {
+const invalidateAfterAssignmentDecision = (queryClient: any, assignmentId?: string) => {
   queryClient.invalidateQueries({ queryKey: QueryKeyFactory.dashboard('educator') });
   queryClient.invalidateQueries({ queryKey: ['educator-dashboard'] });
   queryClient.invalidateQueries({ queryKey: ['educator-projects'] });
   queryClient.invalidateQueries({ queryKey: ['educator-assignments'] });
+  if (assignmentId) {
+    queryClient.invalidateQueries({ queryKey: QueryKeyFactory.detail('educator-assignment', assignmentId) });
+  }
 };
 
 export function useAcceptAssignment() {
@@ -96,7 +99,7 @@ export function useAcceptAssignment() {
     ({ assignmentId, note, agreement_notes }: { assignmentId: string; note?: string; agreement_notes?: string }) =>
       educatorService.acceptAssignment(assignmentId, note ?? agreement_notes),
     {
-      onSuccess: () => invalidateAfterAssignmentDecision(queryClient),
+      onSuccess: (_data, variables) => invalidateAfterAssignmentDecision(queryClient, variables.assignmentId),
     }
   );
 }
@@ -108,7 +111,7 @@ export function useRejectAssignment() {
     ({ assignmentId, note, reason }: { assignmentId: string; note?: string; reason?: string }) =>
       educatorService.rejectAssignment(assignmentId, reason ?? note),
     {
-      onSuccess: () => invalidateAfterAssignmentDecision(queryClient),
+      onSuccess: (_data, variables) => invalidateAfterAssignmentDecision(queryClient, variables.assignmentId),
     }
   );
 }
@@ -586,6 +589,25 @@ export function useEducatorAssignments(params?: any) {
     pagination: (query.data as any)?.pagination ?? payload?.pagination,
     counts: payload?.counts ?? payload?.data?.counts,
   } as any;
+}
+
+export function useEducatorAssignment(assignmentId: string) {
+  const query = useQuery<any>({
+    queryKey: QueryKeyFactory.detail('educator-assignment', assignmentId),
+    queryFn: () => educatorService.getAssignment(assignmentId),
+    enabled: Boolean(assignmentId),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+  const payload = query.data?.data;
+  const assignment = payload?.assignment ?? payload?.data?.assignment ?? payload?.data ?? payload;
+
+  return {
+    ...query,
+    data: assignment,
+  };
 }
 
 export function useEducatorTasksList(filters?: Record<string, any>) {

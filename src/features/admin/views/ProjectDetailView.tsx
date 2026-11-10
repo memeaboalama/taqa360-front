@@ -101,7 +101,9 @@ const TaskCard: React.FC<{
 
         const rawStatus = a.status ?? a.assignment_status;
         const statusStr = typeof rawStatus === 'string' ? rawStatus.toUpperCase().replace(/[-\s]+/g, '_') : '';
-        const mappedStatus: AssignmentStatus = statusStr === 'ACCEPTED' ? AssignmentStatus.ACCEPTED : (statusStr === 'REJECTED' || statusStr === 'CANCELLED' ? AssignmentStatus.REJECTED : AssignmentStatus.PENDING);
+        const mappedStatus = (Object.values(AssignmentStatus) as string[]).includes(statusStr)
+            ? statusStr as AssignmentStatus
+            : AssignmentStatus.PENDING;
 
         return {
             ...a, // keep every field the API sent
@@ -110,9 +112,6 @@ const TaskCard: React.FC<{
             educator: a.educator || null, // keep nested educator for direct access
             type: mappedType,
             status: mappedStatus,
-            // The enum has no CANCELLED member, so a cancelled assignment is mapped
-            // to REJECTED above. Keep the real status here: the UI needs to tell
-            // "the specialist rejected it" apart from "the admin cancelled it".
             rawStatus: statusStr,
             amount: a.amount,
             agreementNotes: a.agreementNotes || a.agreement_notes || null,
@@ -162,7 +161,10 @@ const TaskCard: React.FC<{
             case AssignmentStatus.ACCEPTED: return { label: 'مقبول', color: 'bg-green-100 text-green-700' };
             case AssignmentStatus.PENDING: return { label: 'قيد الانتظار', color: 'bg-yellow-100 text-yellow-700' };
             case AssignmentStatus.REJECTED: return { label: 'مرفوض', color: 'bg-red-100 text-red-700' };
-            case 'CANCELLED': return { label: 'ملغى', color: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
+            case AssignmentStatus.REJECTED_BY_EDUCATOR: return { label: 'مرفوض من المتخصص', color: 'bg-red-100 text-red-700' };
+            case AssignmentStatus.IN_PROGRESS: return { label: 'قيد التنفيذ', color: 'bg-blue-100 text-blue-700' };
+            case AssignmentStatus.COMPLETED: return { label: 'مكتمل', color: 'bg-green-100 text-green-700' };
+            case AssignmentStatus.CANCELLED: return { label: 'ملغى', color: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
             // Never claim "cancelled" for an unknown status: it is a real state,
             // so guessing it hides real bugs.
             default: return { label: String(status ?? 'غير معروف'), color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
@@ -253,15 +255,13 @@ const TaskCard: React.FC<{
                                 const educator = assignment.educator || educators.find((e: any) => e.id === assignment.educatorId);
                                 if (!educator) return null;
                                 const typeInfo = getAssignmentTypeInfo(assignment.type);
-                                // rawStatus is the truth from the API. `status` cannot be used for
-                                // these checks: the enum has no CANCELLED member, so a cancelled
-                                // assignment is normalised to REJECTED and a cancelled row was
-                                // being reported as "the specialist rejected it".
+                                // Keep the API status for distinguishing specialist rejection
+                                // from an admin cancellation.
                                 const rawStatus = String((assignment as any).rawStatus ?? '').toUpperCase();
                                 const isCancelled = rawStatus === 'CANCELLED';
                                 const isPending = rawStatus === 'PENDING';
                                 const isAccepted = rawStatus === 'ACCEPTED';
-                                const isRejected = rawStatus === 'REJECTED';
+                                const isRejected = rawStatus === 'REJECTED' || rawStatus === 'REJECTED_BY_EDUCATOR';
                                 const statusInfo = isCancelled
                                     ? { label: 'ملغى', color: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }
                                     : getAssignmentStatusInfo(assignment.status);

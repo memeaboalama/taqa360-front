@@ -905,6 +905,11 @@ export class EducatorService {
     return response;
   }
 
+  static async getAssignment(assignmentId: string): Promise<any> {
+    const response = await apiClient.get<any>(`/educator/assignments/${assignmentId}`, undefined, { cache: false });
+    return response;
+  }
+
   static async getTasks(filters?: Record<string, any>): Promise<any> {
     // API expects GET with body; use POST override with sendParamsInBody
     const response = await apiClient.get<any>('/educator/tasks', filters, { sendParamsInBody: true });

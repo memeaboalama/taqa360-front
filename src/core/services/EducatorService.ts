@@ -196,6 +196,15 @@ export const educatorService = {
       pagination: envelope?.pagination ?? envelope?.data?.pagination,
     } as any;
   },
+  getAssignment: async (assignmentId: string) => {
+    const r: any = await BaseEducatorService.getAssignment(assignmentId);
+    const envelope = r?.data ?? r;
+    return {
+      status: true,
+      message: envelope?.message ?? null,
+      data: envelope?.data ?? envelope,
+    } as any;
+  },
   getTasks: async (filters?: any) => {
     const r = await BaseEducatorService.getTasks(filters);
     return { status: true, message: null, data: (r as any)?.data ?? r } as any;

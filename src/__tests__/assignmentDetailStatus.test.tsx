@@ -63,4 +63,16 @@ describe('AssignmentDetailView per status', () => {
     expect(html).not.toContain('سبب الرفض');
     expect(html).not.toContain('عرض تفاصيل المهمة');
   });
+
+  it.each([
+    ['rejected_by_educator', 'مرفوض من المتخصص'],
+    ['in_progress', 'قيد التنفيذ'],
+    ['completed', 'مكتمل'],
+    ['cancelled', 'ملغى'],
+  ])('shows the %s assignment state without decision buttons', (status, label) => {
+    const html = render({ status });
+    expect(html).toContain(label);
+    expect(html).not.toContain('bg-green-600 rounded-lg hover:bg-green-700');
+    expect(html).not.toContain('bg-red-100 dark:bg-red-900/50');
+  });
 });

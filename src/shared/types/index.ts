@@ -85,6 +85,10 @@ export enum AssignmentStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
   REJECTED = 'REJECTED',
+  REJECTED_BY_EDUCATOR = 'REJECTED_BY_EDUCATOR',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum ProjectCreationType {
