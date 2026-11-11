@@ -15,6 +15,15 @@ export default defineConfig(({ mode }) => {
     }
 
     return {
+      plugins: [
+        {
+          name: 'brand-page-title',
+          transformIndexHtml(html) {
+            const appName = brand === 'huloolcom' ? 'Huloolcom' : 'TAQA 360';
+            return html.replace(/_{1,2}APP_NAME_{1,2}/g, appName);
+          }
+        }
+      ],
       define: {
         __API_BASE_URL__: JSON.stringify(apiBaseUrl),
         __APP_BRAND__: JSON.stringify(brand),
