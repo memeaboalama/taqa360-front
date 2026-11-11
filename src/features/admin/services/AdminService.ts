@@ -500,6 +500,14 @@ export class AdminService {
     return response.data;
   }
 
+  static async decideBidModification(id: string, decision: 'APPROVED' | 'REJECTED', decisionNote?: string) {
+    const response = await apiClient.post<any>(`/admin/bid-modifications/${id}/decision`, {
+      decision,
+      decision_note: decisionNote,
+    });
+    return response.data;
+  }
+
   /**
    * Dashboard
    */

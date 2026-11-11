@@ -110,6 +110,8 @@ export const adminService = {
   // Bids (admin endpoints)
   getBids: (params?: any) => Promise.resolve({ bids: [] }),
   getBid: async (id: string) => FeatureAdminService.getBid(id),
+  decideBidModification: (id: string, decision: 'APPROVED' | 'REJECTED', decisionNote?: string) =>
+    FeatureAdminService.decideBidModification(id, decision, decisionNote),
   approveBid: (id: string, message?: string) => ProjectService.approveBid(id, message),
   rejectBid: (id: string, reason: string) => ProjectService.rejectBid(id, reason),
 

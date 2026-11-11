@@ -833,7 +833,13 @@ export function useEducatorBidDetail(id: string) {
   return useBaseQuery(
     QueryKeyFactory.detail(QueryKeyFactory.QUERIES.BIDS, id),
     () => educatorService.getBid(id),
-    { enabled: !!id }
+    {
+      enabled: !!id,
+      refetchInterval: 5000,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
+    }
   );
 }
 
@@ -861,6 +867,21 @@ export function useUpdateBid() {
       educatorService.updateBid(id, data),
     {
       onSuccess: (data, variables) => {
+        QueryKeyFactory.invalidateList(queryClient, 'educator-bids');
+        QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.id);
+      }
+    }
+  );
+}
+
+export function useRequestBidModification() {
+  const queryClient = useQueryClient();
+  return useBaseMutation(
+    ['educator', 'bid', 'modification-request'],
+    ({ id, data }: { id: string; data: { proposal: string; delivery_days: number; bid_tasks: { task_id: string; amount: number }[] } }) =>
+      educatorService.requestBidModification(id, data),
+    {
+      onSuccess: (_data, variables) => {
         QueryKeyFactory.invalidateList(queryClient, 'educator-bids');
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.id);
       }

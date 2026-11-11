@@ -26,23 +26,42 @@ const RatingStars: React.FC<{ rating: number }> = ({ rating }) => {
     );
 };
 
-export function getAvailableBidActions(status: BidStatus): Array<'reject' | 'approve' | 'assign'> {
-    if (status === BidStatus.PENDING) return ['reject', 'approve', 'assign'];
-    if (status === BidStatus.APPROVED) return ['reject', 'assign'];
-    return [];
+export function getAvailableBidActions(status: BidStatus, educatorAlreadyAssigned = false): Array<'reject' | 'approve' | 'assign'> {
+    const actions = status === BidStatus.PENDING
+        ? ['reject', 'approve', 'assign'] as const
+        : status === BidStatus.APPROVED
+            ? ['reject', 'assign'] as const
+            : [];
+    return educatorAlreadyAssigned ? actions.filter(action => action !== 'assign') : [...actions];
+}
+
+export function isEducatorAssignedToTask(task: Task, educatorId: string): boolean {
+    return (task.assignments || []).some((assignment: any) => {
+        const assignedEducatorId = assignment.educator?.id
+            ?? assignment.educatorId
+            ?? assignment.educator_id
+            ?? assignment.assignedTo;
+        const status = String(assignment.status ?? assignment.assignmentStatus ?? assignment.assignment_status ?? '')
+            .trim()
+            .toUpperCase();
+
+        return String(assignedEducatorId ?? '') === String(educatorId) && status !== 'CANCELLED';
+    });
 }
 
 const ProviderBidCard: React.FC<{
     bid: Bid;
     bidTask: PricedBidTask;
+    task: Task;
     educator?: Educator;
     navigateTo: (view: ViewType, id?: string) => void;
     onUpdateStatus: (bidId: string, taskId: string, newStatus: BidStatus, details: any) => void;
-}> = ({ bid, bidTask, educator, navigateTo, onUpdateStatus }) => {
+}> = ({ bid, bidTask, task, educator, navigateTo, onUpdateStatus }) => {
     if (!educator) return null;
     
     const [action, setAction] = useState<'reject' | 'approve' | 'assign' | null>(null);
-    const availableActions = getAvailableBidActions(bidTask.status);
+    const educatorAlreadyAssigned = isEducatorAssignedToTask(task, bid.educatorId);
+    const availableActions = getAvailableBidActions(bidTask.status, educatorAlreadyAssigned);
 
     const handleAction = (newStatus: BidStatus) => {
         const wasApproved = bidTask.status === BidStatus.APPROVED;
@@ -263,14 +282,14 @@ const TaskBidsSection: React.FC<{
                     <TabButton name="rejected" label="المرفوضة" count={rejectedBids.length} />
                 </div>
                 <div className="space-y-3">
-                     {activeTab === 'pending' && (pendingBids.length > 0 ? pendingBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض معلقة.</p>)}
-                     {activeTab === 'approved' && (approvedBids.length > 0 ? approvedBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض مقبولة مبدئياً.</p>)}
+                     {activeTab === 'pending' && (pendingBids.length > 0 ? pendingBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} task={task} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض معلقة.</p>)}
+                     {activeTab === 'approved' && (approvedBids.length > 0 ? approvedBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} task={task} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض مقبولة مبدئياً.</p>)}
                      {activeTab === 'assigned' && (assignedBids.length > 0 ? assignedBids.map(({bid, bidTask}) => {
                          const educator = educators.find(e => e.id === bid.educatorId) || (bid as any).educator;
                          if (!educator) return null;
                          return <AssignedBidCard key={bid.id} bid={bid} bidTask={bidTask} educator={educator} onUnassign={() => setUnassignAction({bidId: bid.id, taskId: task.id, educatorName: educator.name})} />
                      }) : <p className="text-center text-xs text-gray-400 py-4">لم يتم تعيين متخصصين بعد.</p>)}
-                     {activeTab === 'rejected' && (rejectedBids.length > 0 ? rejectedBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض مرفوضة.</p>)}
+                     {activeTab === 'rejected' && (rejectedBids.length > 0 ? rejectedBids.map(({bid, bidTask}) => <ProviderBidCard key={bid.id} bid={bid} bidTask={bidTask} task={task} educator={educators.find(e => e.id === bid.educatorId) || (bid as any).educator} navigateTo={navigateTo} onUpdateStatus={onUpdateBidTaskStatus}/>) : <p className="text-center text-xs text-gray-400 py-4">لا توجد عروض مرفوضة.</p>)}
                 </div>
             </div>
         </div>

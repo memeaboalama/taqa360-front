@@ -494,6 +494,26 @@ export interface Bid {
   createdAt: string;
   attachments: Attachment[];
   links: { id: string, title: string, url: string }[];
+  modificationRequests?: BidModificationRequest[];
+}
+
+export interface BidModificationRequest {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
+  previousValues: {
+    proposal: string;
+    deliveryDays: number;
+    tasks: { task_id: string; amount: number }[];
+  };
+  requestedValues: {
+    proposal: string;
+    deliveryDays: number;
+    tasks: { task_id: string; amount: number }[];
+  };
+  decisionNote?: string | null;
+  decidedBy?: string | number | null;
+  createdAt: string;
+  decidedAt?: string | null;
 }
 
 export type AppNotificationIcon = 'bid' | 'task' | 'project' | 'user' | 'invoice' | 'request' | 'application';

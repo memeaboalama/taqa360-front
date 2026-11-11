@@ -1023,6 +1023,14 @@ export class EducatorService {
     return response.data;
   }
 
+  static async requestBidModification(id: string, data: {
+    proposal: string;
+    delivery_days: number;
+    bid_tasks: { task_id: string; amount: number }[];
+  }): Promise<any> {
+    return apiClient.post<any>(`/educator/bids/${id}/modification-requests`, data);
+  }
+
   static async deleteBid(id: string): Promise<void> {
     await apiClient.delete<null>(`/educator/bids/${id}`);
   }

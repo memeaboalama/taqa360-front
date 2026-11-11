@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Bid, Project, Educator, BidStatus, Task, PricedBidTask, ViewType, ExperienceLevel } from '../../../shared/types';
+import { Bid, Project, Educator, BidStatus, Task, PricedBidTask, ViewType, ExperienceLevel, BidModificationRequest } from '../../../shared/types';
 import StatusUpdateModal from '../components/modals/StatusUpdateModal';
 import { ArrowLeftIcon, ArrowRightIcon, BriefcaseIcon, CheckCircleIcon, ClockIcon, DollarSignIcon, FileTextIcon, LinkIcon, PaperclipIcon, PhoneIcon, StarIcon, UserCheckIcon, XCircleIcon, SparklesIcon, CheckIcon, MapPinIcon, GlobeAltIcon, EnvelopeIcon } from '../../../shared/components/Icons';
 import ApprovalMessageModal from '../components/modals/ApprovalMessageModal';
@@ -13,7 +13,8 @@ interface AdminBidDetailViewProps {
     educator: Educator;
     allBids: Bid[];
     navigateTo: (view: ViewType, id?: string | null) => void;
-    onUpdateBidTaskStatus: (bidId: string, taskId: string, newStatus: BidStatus, details?: { reason?: string; approvalMessage?: string; assignmentAgreement?: string; }) => void;
+    onUpdateBidTaskStatus: (bidId: string, taskId: string, newStatus: BidStatus, details?: { reason?: string; approvalMessage?: string; assignmentAgreement?: string; }) => void | Promise<boolean>;
+    onDecideModificationRequest: (requestId: string, decision: 'APPROVED' | 'REJECTED', decisionNote?: string) => Promise<void>;
 }
 
 const InfoCard: React.FC<{ children: React.ReactNode, title: string, icon: React.ReactNode, className?: string }> = ({ children, title, icon, className = '' }) => (
@@ -137,9 +138,29 @@ const BidTaskCard: React.FC<{
     )
 }
 
-const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, educator, allBids, navigateTo, onUpdateBidTaskStatus }) => {
+const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, educator, allBids, navigateTo, onUpdateBidTaskStatus, onDecideModificationRequest }) => {
     const { t, language } = useLanguage();
     const [action, setAction] = useState<{ taskId: string, newStatus: BidStatus } | null>(null);
+    const [modificationNotes, setModificationNotes] = useState<Record<string, string>>({});
+    const [modificationError, setModificationError] = useState('');
+    const [submittingModificationId, setSubmittingModificationId] = useState<string | null>(null);
+
+    const decideModification = async (request: BidModificationRequest, decision: 'APPROVED' | 'REJECTED') => {
+        const note = modificationNotes[request.id]?.trim() || '';
+        if (decision === 'REJECTED' && !note) {
+            setModificationError('يرجى كتابة سبب رفض طلب التعديل.');
+            return;
+        }
+        setModificationError('');
+        setSubmittingModificationId(request.id);
+        try {
+            await onDecideModificationRequest(request.id, decision, note || undefined);
+        } catch (error: any) {
+            setModificationError(error?.message || 'تعذر حفظ قرار طلب التعديل.');
+        } finally {
+            setSubmittingModificationId(null);
+        }
+    };
 
     const languagesDisplay = useMemo(() => {
         if (!Array.isArray(educator.languages) || educator.languages.length === 0) {
@@ -183,11 +204,12 @@ const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, e
         }
     };
 
-    const handleConfirmStatusUpdate = (details: any) => {
-        if (action) {
-            onUpdateBidTaskStatus(bid.id, action.taskId, action.newStatus, details);
-        }
-        setAction(null);
+    const handleConfirmStatusUpdate = async (details: any) => {
+        if (!action) return false;
+        const result = await onUpdateBidTaskStatus(bid.id, action.taskId, action.newStatus, details);
+        const succeeded = result !== false;
+        if (succeeded) setAction(null);
+        return succeeded;
     };
     
     const totalBidAmount = useMemo(() => bid.bidTasks.reduce((acc, t) => acc + t.amount, 0), [bid.bidTasks]);
@@ -283,7 +305,69 @@ const AdminBidDetailView: React.FC<AdminBidDetailViewProps> = ({ bid, project, e
                             </div>
                         </div>
                     </InfoCard>
-                    
+
+                    {(bid.modificationRequests?.length ?? 0) > 0 && (
+                        <InfoCard title="طلبات تعديل الاتفاق وسجلها" icon={<FileTextIcon className="w-6 h-6" />}>
+                            <div className="space-y-4">
+                                {bid.modificationRequests!.map((request) => {
+                                    const pending = request.status === 'PENDING';
+                                    const valuesBlock = (title: string, values: BidModificationRequest['previousValues']) => (
+                                        <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 space-y-2 text-sm">
+                                            <h4 className="font-bold">{title}</h4>
+                                            <p><span className="font-semibold">مدة التنفيذ:</span> {values.deliveryDays} يوم</p>
+                                            <p className="whitespace-pre-line"><span className="font-semibold">الشروط:</span> {values.proposal}</p>
+                                            <ul className="list-disc ps-5">
+                                                {values.tasks.map((item) => {
+                                                    const task = project.tasks.find((candidate) => candidate.id === item.task_id);
+                                                    return <li key={item.task_id}>{task?.title || item.task_id}: {Number(item.amount).toLocaleString()} {t('sarCurrency')}</li>;
+                                                })}
+                                            </ul>
+                                        </div>
+                                    );
+                                    return (
+                                        <div key={request.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h4 className="font-bold">طلب تعديل — {pending ? 'قيد المراجعة' : request.status === 'APPROVED' ? 'معتمد' : 'مرفوض'}</h4>
+                                                <span className="text-xs text-gray-500">{request.createdAt ? new Date(request.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en') : ''}</span>
+                                            </div>
+                                            <div className="grid md:grid-cols-2 gap-3">
+                                                {valuesBlock('قبل الطلب', request.previousValues)}
+                                                {valuesBlock('المقترح الجديد', request.requestedValues)}
+                                            </div>
+                                            {request.decisionNote && <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-semibold">ملاحظة القرار:</span> {request.decisionNote}</p>}
+                                            {pending && (
+                                                <div className="space-y-2">
+                                                    <textarea
+                                                        value={modificationNotes[request.id] ?? ''}
+                                                        onChange={(event) => setModificationNotes((current) => ({ ...current, [request.id]: event.target.value }))}
+                                                        placeholder="ملاحظة للإدارة أو سبب الرفض (مطلوب عند الرفض)"
+                                                        rows={2}
+                                                        className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-2 text-sm"
+                                                    />
+                                                    {modificationError && <p className="text-sm text-red-600">{modificationError}</p>}
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={submittingModificationId === request.id}
+                                                            onClick={() => decideModification(request, 'APPROVED')}
+                                                            className="rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                                        >اعتماد التعديل</button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={submittingModificationId === request.id}
+                                                            onClick={() => decideModification(request, 'REJECTED')}
+                                                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                                        >رفض الطلب</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </InfoCard>
+                    )}
+
                     <InfoCard title={t('adminBidDetail.tasksInBid')} icon={<BriefcaseIcon className="w-6 h-6" />}>
                         <div className="space-y-3">
                             {bidTasks.map(({task, bidTask}) => <BidTaskCard key={task.id} task={task} bidTask={bidTask} onStatusChange={handleStatusUpdateClick} />)}

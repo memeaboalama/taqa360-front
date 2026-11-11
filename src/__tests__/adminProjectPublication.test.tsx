@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { LanguageProvider } from '../app/providers/LanguageProvider';
 import ProjectDetailView from '../features/admin/views/ProjectDetailView';
 import BidsView from '../features/admin/views/BidsView';
-import { getAvailableBidActions } from '../features/admin/views/BidsView';
+import { getAvailableBidActions, isEducatorAssignedToTask } from '../features/admin/views/BidsView';
 import { Bid, BidStatus, Project, ProjectCreationType, ProjectStatus, Task } from '../shared/types';
 
 beforeAll(() => {
@@ -76,6 +76,27 @@ describe('admin project publication and task offers', () => {
 
     it('does not offer accept again for approved bids', () => {
       expect(getAvailableBidActions(BidStatus.APPROVED)).toEqual(['reject', 'assign']);
+    });
+
+    it('hides assign when this educator already has an active assignment for the task', () => {
+      const task = {
+        id: 'task-1',
+        assignments: [{ educatorId: 'educator-1', status: 'ACCEPTED' }],
+      } as Task;
+
+      expect(isEducatorAssignedToTask(task, 'educator-1')).toBe(true);
+      expect(getAvailableBidActions(BidStatus.PENDING, true)).toEqual(['reject', 'approve']);
+      expect(getAvailableBidActions(BidStatus.APPROVED, true)).toEqual(['reject']);
+    });
+
+    it('allows assign again when the previous assignment was cancelled', () => {
+      const task = {
+        id: 'task-1',
+        assignments: [{ educator: { id: 'educator-1' }, status: 'CANCELLED' }],
+      } as Task;
+
+      expect(isEducatorAssignedToTask(task, 'educator-1')).toBe(false);
+      expect(getAvailableBidActions(BidStatus.APPROVED, false)).toEqual(['reject', 'assign']);
     });
 
     it.each([BidStatus.REJECTED, BidStatus.ASSIGNED])('does not offer bid actions for %s bids', (status) => {

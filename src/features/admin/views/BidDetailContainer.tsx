@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import AdminBidDetailView from './BidDetailView';
-import { useAdminBid, useApproveBidTask, useRejectBidTask } from '../../../core/hooks/useAdminQueries';
+import { useAdminBid, useApproveBidTask, useRejectBidTask, useDecideBidModification } from '../../../core/hooks/useAdminQueries';
 import { QueryKeyFactory } from '../../../core/hooks/useBaseQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../../../core/services/AdminService';
@@ -8,6 +8,7 @@ import LoadingScreen from '../../../shared/components/LoadingScreen';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 import { Bid, Educator, Project, Task, BidStatus, Attachment, PricedBidTask, ViewType, PaymentInfo } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import { useData } from '../../../app/providers/DataProvider';
 
 interface BidDetailContainerProps {
   bidId: string;
@@ -53,10 +54,12 @@ const DEFAULT_EDUCATOR_PROFILE = {
 
 const BidDetailContainer: React.FC<BidDetailContainerProps> = ({ bidId, navigateTo }) => {
   const { t } = useLanguage();
+  const { addToast } = useData();
   const queryClient = useQueryClient();
   const bidQuery = useAdminBid(bidId);
   const approveTask = useApproveBidTask();
   const rejectTask = useRejectBidTask();
+  const decideModification = useDecideBidModification();
 
   const mapped = useMemo(() => {
     const payload: any = bidQuery.data as any;
@@ -111,7 +114,8 @@ const BidDetailContainer: React.FC<BidDetailContainerProps> = ({ bidId, navigate
       attachments: Array.isArray(bidNode.attachments) ? bidNode.attachments.map(mapAttachment) : [],
       links: Array.isArray(bidNode.links)
         ? (bidNode.links.flat?.() || bidNode.links).map((l: any, i: number) => ({ id: String(l.id || i), title: l.title, url: l.url }))
-        : []
+        : [],
+      modificationRequests: Array.isArray(bidNode.modificationRequests) ? bidNode.modificationRequests : [],
     };
 
     const tasksFromBid: Task[] = (bidNode.bidTasks || []).map((bt: any) => {
@@ -157,25 +161,47 @@ const BidDetailContainer: React.FC<BidDetailContainerProps> = ({ bidId, navigate
 
   const handleTaskStatus = async (bidIdParam: string, taskId: string, newStatus: BidStatus, details?: { reason?: string; approvalMessage?: string; assignmentAgreement?: string; }) => {
     const bidData = mapped?.bid;
-    if (!bidData) return;
+    if (!bidData) return false;
 
     try {
+      const bidTask = bidData.bidTasks.find(x => x.taskId === taskId);
+      if (!bidTask?.bidTaskId || bidTask.bidTaskId === 'undefined') {
+        throw new Error(t('toasts.bidTaskNotFound'));
+      }
+
       if (newStatus === BidStatus.APPROVED) {
-        await approveTask.mutateAsync({ bidId: bidData.id, taskId, feedback: details?.approvalMessage });
+        await approveTask.mutateAsync({ bidId: bidData.id, bidTaskId: bidTask.bidTaskId, feedback: details?.approvalMessage });
       } else if (newStatus === BidStatus.REJECTED) {
-        await rejectTask.mutateAsync({ bidId: bidData.id, taskId, reason: details?.reason || '' });
+        await rejectTask.mutateAsync({ bidId: bidData.id, bidTaskId: bidTask.bidTaskId, reason: details?.reason || '' });
       } else if (newStatus === BidStatus.ASSIGNED) {
-        const bt = bidData.bidTasks.find(x => x.taskId === taskId);
-        const bidTaskId = bt?.bidTaskId;
-        if (!bidTaskId) throw new Error('Bid task id not found');
-        await adminService.assignBidTaskById(bidTaskId, bidData.educatorId, details?.assignmentAgreement || undefined);
+        await adminService.assignBidTaskById(bidTask.bidTaskId, bidData.educatorId, details?.assignmentAgreement || undefined);
       } else {
-        return;
+        return false;
       }
 
       await QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, bidData.id);
+      addToast(t('toasts.bidStatusUpdated'));
+      return true;
     } catch (err) {
-      // handled globally via errorManager
+      addToast(err instanceof Error ? err.message : t('toasts.bidStatusUpdateFailed'), 'error');
+      return false;
+    }
+  };
+
+  const handleModificationDecision = async (requestId: string, decision: 'APPROVED' | 'REJECTED', decisionNote?: string) => {
+    if (!mapped?.bid) return;
+    try {
+      await decideModification.mutateAsync({ id: requestId, bidId: mapped.bid.id, decision, decisionNote });
+      await QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, mapped.bid.id);
+      addToast(t(decision === 'APPROVED'
+        ? 'toasts.bidModificationApproved'
+        : 'toasts.bidModificationRejected'));
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : t('toasts.bidModificationDecisionFailed'),
+        'error'
+      );
+      throw error;
     }
   };
 
@@ -191,6 +217,7 @@ const BidDetailContainer: React.FC<BidDetailContainerProps> = ({ bidId, navigate
       allBids={[mapped.bid]}
       navigateTo={navigateTo}
       onUpdateBidTaskStatus={handleTaskStatus}
+      onDecideModificationRequest={handleModificationDecision}
     />
   );
 };

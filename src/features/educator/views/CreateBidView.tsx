@@ -42,6 +42,8 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
     const [existingLinks, setExistingLinks] = useState<{ id?: string; title: string; url: string }[]>(existingBid?.links || []);
     const [newLinks, setNewLinks] = useState<{ title: string; url: string }[]>([]);
     const [deletedLinkIds, setDeletedLinkIds] = useState<string[]>([]);
+    const [linkTitle, setLinkTitle] = useState('');
+    const [linkUrl, setLinkUrl] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [internalSubmitting, setInternalSubmitting] = useState(false);
 
@@ -52,7 +54,15 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
         if (selectedTasks.size === 0) newErrors.tasks = t('createBid.selectAtLeastOneTask');
-        if (!deliveryDays || Number(deliveryDays) <= 0) newErrors.deliveryDays = t('createBid.enterDeliveryDays');
+        if (!proposal.trim()) newErrors.proposal = t('createBid.enterProposal');
+        if (!deliveryDays || !Number.isInteger(Number(deliveryDays)) || Number(deliveryDays) <= 0) {
+            newErrors.deliveryDays = t('createBid.enterDeliveryDays');
+        }
+        selectedTasks.forEach((price, taskId) => {
+            if (price.trim() === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+                newErrors[`price:${taskId}`] = t('createBid.enterValidPrice');
+            }
+        });
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -70,7 +80,36 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
     };
 
     const handlePriceChange = (taskId: string, price: string) => {
-        setSelectedTasks(new Map(selectedTasks.set(taskId, price)));
+        setSelectedTasks(prev => new Map(prev).set(taskId, price));
+        if (price.trim() !== '' && Number.isFinite(Number(price)) && Number(price) >= 0) {
+            setErrors(prev => {
+                const { [`price:${taskId}`]: _priceError, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
+    const handleAddLink = () => {
+        const nextErrors: Record<string, string> = {};
+        if (!linkTitle.trim()) nextErrors.linkTitle = t('createBid.enterLinkTitle');
+        if (!linkUrl.trim()) {
+            nextErrors.linkUrl = t('createBid.enterLinkUrl');
+        } else {
+            try {
+                const parsedUrl = new URL(linkUrl);
+                if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('Unsupported URL protocol');
+            } catch {
+                nextErrors.linkUrl = t('createBid.enterValidLinkUrl');
+            }
+        }
+        setErrors(prev => {
+            const { linkTitle: _linkTitleError, linkUrl: _linkUrlError, ...rest } = prev;
+            return { ...rest, ...nextErrors };
+        });
+        if (Object.keys(nextErrors).length > 0) return;
+        setNewLinks(prev => [...prev, { title: linkTitle.trim(), url: linkUrl.trim() }]);
+        setLinkTitle('');
+        setLinkUrl('');
     };
 
     const totalAmount = useMemo(() => {
@@ -200,7 +239,7 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                     </button>
                 </div>
             ) : (
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <form noValidate onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
                          <h2 className="font-bold text-lg mb-4 flex items-center text-slate-900 dark:text-white">
@@ -228,8 +267,9 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                                                     {task.budget && <span className="text-xs text-slate-500 dark:text-slate-400">{t('createBid.adminBudget')}: {task.budget.toLocaleString()} {t('createBid.sarCurrency')}</span>}
                                                 </div>
                                                 <div className="relative">
-                                                     <input type="number" value={price} onChange={e => handlePriceChange(task.id, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded-md p-2 text-sm text-slate-900 dark:text-white" placeholder={t('createBid.taskBudgetPlaceholder')} required/>
+                                                     <input type="number" min="0" step="0.01" value={price} onChange={e => handlePriceChange(task.id, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded-md p-2 text-sm text-slate-900 dark:text-white" placeholder={t('createBid.taskBudgetPlaceholder')}/>
                                                 </div>
+                                                {errors[`price:${task.id}`] && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircleIcon className="w-4 h-4"/>{errors[`price:${task.id}`]}</p>}
                                                 {isOverBudget && <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-1.5 flex items-center gap-1"><AlertCircleIcon className="w-4 h-4"/>{t('createBid.overBudget')}</p>}
                                             </div>
                                         )}
@@ -243,7 +283,14 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                     {/* Proposal & Attachments & Links */}
                     <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
                         <label className="font-bold text-lg mb-4 flex items-center text-slate-900 dark:text-white"><PaperclipIcon className="w-5 h-5 me-2"/>{t('createBid.proposal')} & {t('createBid.attachments')}</label>
-                        <textarea value={proposal} onChange={e => setProposal(e.target.value)} rows={6} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-3 text-slate-800 dark:text-slate-200" placeholder={t('createBid.proposal')} required></textarea>
+                        <textarea value={proposal} onChange={e => {
+                            setProposal(e.target.value);
+                            if (e.target.value.trim()) setErrors(prev => {
+                                const { proposal: _proposalError, ...rest } = prev;
+                                return rest;
+                            });
+                        }} rows={6} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-3 text-slate-800 dark:text-slate-200" placeholder={t('createBid.proposal')} />
+                        {errors.proposal && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircleIcon className="w-4 h-4"/>{errors.proposal}</p>}
                         
                         <div className="mt-4">
                             <label className="block text-sm font-medium mb-2 text-slate-600 dark:text-slate-300">{t('createBid.attachFilesOptional')}</label>
@@ -287,13 +334,27 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                         <div className="mt-4">
                             <label className="block text-sm font-medium mb-2 text-slate-600 dark:text-slate-300">{t('createBid.addLinksOptional')}</label>
                             <div className="flex gap-2">
-                                <input type="text" placeholder={t('createBid.linkTitle')} id="link-title" className="w-1/3 bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2 text-slate-800 dark:text-slate-200"/>
-                                <input type="url" placeholder="https://example.com" id="link-url" className="w-2/3 bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2 text-slate-800 dark:text-slate-200"/>
-                                <button type="button" onClick={() => {
-                                    const title = (document.getElementById('link-title') as HTMLInputElement).value;
-                                    const url = (document.getElementById('link-url') as HTMLInputElement).value;
-                                    if(title && url) setNewLinks(prev => [...prev, {title, url}]);
-                                }} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-lg"><PlusIcon className="w-5 h-5 text-slate-600 dark:text-slate-300"/></button>
+                                <div className="w-1/3">
+                                    <input type="text" placeholder={t('createBid.linkTitle')} value={linkTitle} onChange={e => {
+                                        setLinkTitle(e.target.value);
+                                        if (e.target.value.trim()) setErrors(prev => {
+                                            const { linkTitle: _linkTitleError, ...rest } = prev;
+                                            return rest;
+                                        });
+                                    }} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2 text-slate-800 dark:text-slate-200"/>
+                                    {errors.linkTitle && <p className="text-xs text-red-500 mt-1">{errors.linkTitle}</p>}
+                                </div>
+                                <div className="w-2/3">
+                                    <input type="url" placeholder="https://example.com" value={linkUrl} onChange={e => {
+                                        setLinkUrl(e.target.value);
+                                        if (e.target.value.trim()) setErrors(prev => {
+                                            const { linkUrl: _linkUrlError, ...rest } = prev;
+                                            return rest;
+                                        });
+                                    }} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2 text-slate-800 dark:text-slate-200"/>
+                                    {errors.linkUrl && <p className="text-xs text-red-500 mt-1">{errors.linkUrl}</p>}
+                                </div>
+                                <button type="button" onClick={handleAddLink} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-lg self-start"><PlusIcon className="w-5 h-5 text-slate-600 dark:text-slate-300"/></button>
                             </div>
                              <div className="flex flex-wrap gap-2 mt-2">
                                 {existingLinks.map((link) => (
@@ -332,7 +393,7 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                                     <label className="block text-sm font-medium mb-1 text-slate-600 dark:text-slate-300">
                                         {t('createBid.deliveryTime')} <span className="text-red-500">*</span>
                                     </label>
-                                    <input type="number" value={deliveryDays} onChange={e => { setDeliveryDays(e.target.value); if (e.target.value && Number(e.target.value) > 0) setErrors(prev => { const { deliveryDays, ...rest } = prev; return rest; }); }} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2.5 text-slate-800 dark:text-slate-200" placeholder={t('createBid.deliveryTimeExample')} required/>
+                                    <input type="number" min="1" step="1" value={deliveryDays} onChange={e => { setDeliveryDays(e.target.value); if (e.target.value && Number.isInteger(Number(e.target.value)) && Number(e.target.value) > 0) setErrors(prev => { const { deliveryDays, ...rest } = prev; return rest; }); }} className="w-full bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-lg text-sm p-2.5 text-slate-800 dark:text-slate-200" placeholder={t('createBid.deliveryTimeExample')}/>
                                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('createBid.deliveryTimeHint')}</p>
                                     {errors.deliveryDays && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircleIcon className="w-4 h-4"/>{errors.deliveryDays}</p>}
                                  </div>
@@ -340,7 +401,7 @@ const CreateBidView: React.FC<CreateBidViewProps> = ({ project, existingBid, onC
                         </div>
                         <button 
                             type="submit" 
-                            disabled={isSubmitting || selectedTasks.size === 0 || !isApproved}
+                            disabled={isSubmitting || !isApproved}
                             className="w-full p-3 text-base sm:text-lg font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             title={!isApproved ? t('createBid.accountMustBeApproved') : ''}
                         >

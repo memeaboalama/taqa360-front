@@ -236,6 +236,7 @@ export const educatorService = {
   getBid: (id: string) => BaseEducatorService.getBid(id),
   createBid: (bidData: any) => BaseEducatorService.createBid(bidData),
   updateBid: (id: string, bidData: any) => BaseEducatorService.updateBid(id, bidData),
+  requestBidModification: (id: string, data: any) => BaseEducatorService.requestBidModification(id, data),
   deleteBid: (id: string) => BaseEducatorService.deleteBid(id),
   getBidTasks: (bidId: string) => BaseEducatorService.getBidTasks(bidId),
   updateBidTask: (bidId: string, taskId: string, data: any) => BaseEducatorService.updateBidTask(bidId, taskId, data),

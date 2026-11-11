@@ -27,17 +27,17 @@ const App: React.FC = () => {
 
     return (
         <QueryProvider>
-            <LanguageProvider>
-                <ThemeProvider>
-                    <AuthProvider>
+            <ThemeProvider>
+                <AuthProvider>
+                    <LanguageProvider>
                         <DataProvider>
                             <ErrorBoundary>
                                 <AppContent />
                             </ErrorBoundary>
                         </DataProvider>
-                    </AuthProvider>
-                </ThemeProvider>
-            </LanguageProvider>
+                    </LanguageProvider>
+                </AuthProvider>
+            </ThemeProvider>
         </QueryProvider>
     );
 };

@@ -6,24 +6,31 @@ import { useLanguage } from '../../../../app/providers/LanguageProvider';
 interface ApprovalMessageModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (message: string) => void;
+    onSubmit: (message: string) => Promise<boolean>;
 }
 
 const ApprovalMessageModal: React.FC<ApprovalMessageModalProps> = ({ isOpen, onClose, onSubmit }) => {
     const { t } = useLanguage();
     const [message, setMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit(message);
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await onSubmit(message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div 
             className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center animate-fade-in px-4"
-            onClick={onClose}
+            onClick={() => { if (!isSubmitting) onClose(); }}
         >
             <div 
                 className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 lg:p-8 m-4 flex flex-col items-center text-center animate-fade-in-up"
@@ -48,11 +55,11 @@ const ApprovalMessageModal: React.FC<ApprovalMessageModalProps> = ({ isOpen, onC
                             placeholder={t('modals.approvalMessagePlaceholder')}></textarea>
                     </div>
                     <div className="flex items-center justify-center space-x-4 rtl:space-x-reverse pt-4">
-                        <button type="button" onClick={onClose} className="px-8 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition-colors">
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-8 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             {t('modals.skip')}
                         </button>
-                        <button type="submit" className="px-8 py-2.5 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 focus:ring-4 focus:ring-yellow-300 shadow-md transition-colors">
-                            {t('modals.sendAndConfirm')}
+                        <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-brand-primary/90 focus:ring-4 focus:ring-yellow-300 shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            {isSubmitting ? t('modals.saving') : t('modals.sendAndConfirm')}
                         </button>
                     </div>
                 </form>

@@ -31,6 +31,14 @@ import { useOpportunities, useProject, useOpportunityProject } from '../projects
 import { useCreateBid as useCreateBidMutation, useEducatorBids as useEducatorBidsQuery, useEducatorBidDetail, useUpdateBid as useUpdateBidMutation, useAcceptAssignment, useRejectAssignment, useEducatorProfileData } from '../../core/hooks/useEducatorQueries';
 import { useMyProfile } from '../../features/educators/hooks/useEducatorQueries';
 
+const mapBidModificationRequests = (requests: any) => Array.isArray(requests) ? requests.map((request: any) => ({
+    ...request,
+    status: String(request.status || 'PENDING').trim().toUpperCase(),
+    previousValues: request.previousValues || request.previous_values || { proposal: '', deliveryDays: 0, tasks: [] },
+    requestedValues: request.requestedValues || request.requested_values || { proposal: '', deliveryDays: 0, tasks: [] },
+    decisionNote: request.decisionNote ?? request.decision_note ?? null,
+    decidedAt: request.decidedAt ?? request.decided_at ?? null,
+})) : [];
 
 interface EducatorAppProps {
     currentView: EducatorViewType;
@@ -281,7 +289,8 @@ export const EducatorApp: React.FC<EducatorAppProps> = (props) => {
              proposal: bidData.proposal || '',
              createdAt: bidData.createdAt,
              attachments: (bidData.attachments || []).map((a: any) => ({ id: a.id, title: a.name, name: a.original_name || a.name, url: a.url, size: String(a.size), type: a.type })),
-             links: Array.isArray(bidData.links) ? (bidData.links.flat?.() || bidData.links).map((l: any, i: number) => ({ id: l.id || String(i), title: l.title, url: l.url })) : []
+             links: Array.isArray(bidData.links) ? (bidData.links.flat?.() || bidData.links).map((l: any, i: number) => ({ id: l.id || String(i), title: l.title, url: l.url })) : [],
+             modificationRequests: mapBidModificationRequests(bidData.modificationRequests)
            };
 
            return <CreateBidView project={activeProjectQuery.data as any} existingBid={mappedBid} onCreateBid={handleCreateBid} onUpdateBid={onUpdateBid} navigateTo={navigateTo} isApproved={isApproved} preselectTaskId={viewContext?.taskId} />;
@@ -331,7 +340,8 @@ export const EducatorApp: React.FC<EducatorAppProps> = (props) => {
            proposal: bidData.proposal || '',
            createdAt: bidData.createdAt,
            attachments: (bidData.attachments || []).map((a: any) => ({ id: a.id, title: a.name, name: a.original_name || a.name, url: a.url, size: String(a.size), type: a.type })),
-           links: Array.isArray(bidData.links) ? (bidData.links.flat?.() || bidData.links).map((l: any, i: number) => ({ id: l.id || String(i), title: l.title, url: l.url })) : []
+           links: Array.isArray(bidData.links) ? (bidData.links.flat?.() || bidData.links).map((l: any, i: number) => ({ id: l.id || String(i), title: l.title, url: l.url })) : [],
+           modificationRequests: mapBidModificationRequests(bidData.modificationRequests)
          };
          const mappedProject: Project | undefined = bidData.project ? {
            id: bidData.project.id,
@@ -368,7 +378,7 @@ export const EducatorApp: React.FC<EducatorAppProps> = (props) => {
            requesterName: bidData.project.requesterName
          } : projects.find(p => p.id === mappedBid.projectId);
          if (!mappedProject) return <div>{t('common.projectNotFound')}</div>;
-         return <BidDetailView bid={mappedBid} project={mappedProject} educator={currentUser} navigateTo={navigateTo} />;
+         return <BidDetailView bid={mappedBid} project={mappedProject} educator={currentUser} navigateTo={navigateTo} addToast={props.addToast} />;
       case 'assignmentDetail':
           return <AssignmentDetailView assignment={viewContext?.assignment} navigateTo={navigateTo} addToast={props.addToast} />;
       case 'taskDetail':

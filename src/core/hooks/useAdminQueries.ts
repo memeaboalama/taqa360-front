@@ -937,7 +937,24 @@ export function useAdminBid(id: string) {
     QueryKeyFactory.detail(QueryKeyFactory.QUERIES.BIDS, id),
     () => adminService.getBid(id),
     {
-      enabled: !!id
+      enabled: !!id,
+      refetchInterval: 5000,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    }
+  );
+}
+
+export function useDecideBidModification() {
+  const queryClient = useQueryClient();
+  return useBaseMutation(
+    ['admin', 'bid', 'modification-decision'],
+    ({ id, bidId, decision, decisionNote }: { id: string; bidId: string; decision: 'APPROVED' | 'REJECTED'; decisionNote?: string }) =>
+      adminService.decideBidModification(id, decision, decisionNote),
+    {
+      onSuccess: (_data, variables) => {
+        QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
+      }
     }
   );
 }
@@ -992,8 +1009,8 @@ export function useApproveBidTask() {
 
   return useBaseMutation(
     ['admin', 'bid-task', 'approve'],
-    ({ bidId, taskId, feedback }: { bidId: string; taskId: string; feedback?: string }) =>
-      adminService.approveBidTask(bidId, taskId, feedback),
+    ({ bidId, bidTaskId, feedback }: { bidId: string; bidTaskId: string; feedback?: string }) =>
+      adminService.approveBidTaskById(bidTaskId, feedback),
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
@@ -1011,8 +1028,8 @@ export function useRejectBidTask() {
 
   return useBaseMutation(
     ['admin', 'bid-task', 'reject'],
-    ({ bidId, taskId, reason }: { bidId: string; taskId: string; reason: string }) =>
-      adminService.rejectBidTask(bidId, taskId, reason),
+    ({ bidId, bidTaskId, reason }: { bidId: string; bidTaskId: string; reason: string }) =>
+      adminService.rejectBidTaskById(bidTaskId, reason),
     {
       onSuccess: (data, variables) => {
         QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.BIDS, variables.bidId);
