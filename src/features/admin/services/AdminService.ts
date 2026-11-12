@@ -27,6 +27,7 @@ import {
   PaymentInfo
 } from '../../../shared/types';
 import { API_BASE_URL } from '../../../core/api/config';
+import type { Pagination } from '../../../core/api/types';
 
 export interface EducatorInvitation {
   id: string | number;
@@ -36,6 +37,11 @@ export interface EducatorInvitation {
   expires_at: string;
   completed_at: string | null;
   educator: { id: string | number; name: string } | null;
+}
+
+export interface AdminServicesPage {
+  data: AdminManagedService[];
+  pagination: Pagination | null;
 }
 
 const normalizeKey = (value: any) => typeof value === 'string'
@@ -369,6 +375,25 @@ export interface AdminDashboardStats {
   recentActivity: AdminActivity[];
 }
 
+export interface LocalizedServiceText {
+  ar: string;
+  en: string;
+}
+
+export interface AdminManagedService {
+  id: string;
+  name: string | Partial<LocalizedServiceText>;
+  description: string | Partial<LocalizedServiceText> | null;
+  scope_of_work: string | Partial<LocalizedServiceText> | null;
+  status: string;
+}
+
+export interface AdminServicePayload {
+  name: LocalizedServiceText;
+  description: LocalizedServiceText;
+  scope_of_work: LocalizedServiceText;
+}
+
 export class AdminService {
   /**
    * Academic Majors (Admin)
@@ -415,31 +440,38 @@ export class AdminService {
   /**
    * Services (Admin)
    */
-  static async getServices(params?: { page?: number; per_page?: number; search?: string; status?: string; }) {
+  static async getServices(params?: { page?: number; per_page?: number; search?: string; status?: string; }): Promise<AdminServicesPage> {
     const response = await apiClient.get<any>('/admin/edu/services', params);
     const raw = response.data as any;
-    const list = Array.isArray(raw?.data?.services)
-      ? raw.data.services
-      : Array.isArray(raw?.services)
-        ? raw.services
-        : Array.isArray(raw?.data)
-          ? raw.data
-          : Array.isArray(raw)
-            ? raw
-            : [];
-    return list as any[];
+    const paginatedData = raw?.data?.services ?? raw?.services ?? raw?.data ?? raw;
+    const list = Array.isArray(paginatedData?.data)
+      ? paginatedData.data
+      : Array.isArray(paginatedData)
+        ? paginatedData
+        : [];
+
+    return {
+      data: list as AdminManagedService[],
+      pagination: raw?.pagination ?? paginatedData?.pagination ?? null,
+    };
   }
 
-  static async createService(payload: { name: { ar: string; en: string }; description?: { ar: string; en: string } }) {
+  static async getService(id: string): Promise<AdminManagedService> {
+    const response = await apiClient.get<any>(`/admin/edu/services/${id}`);
+    const raw = response.data as any;
+    return (raw?.data?.service ?? raw?.service ?? raw) as AdminManagedService;
+  }
+
+  static async createService(payload: AdminServicePayload): Promise<AdminManagedService> {
     const response = await apiClient.post<any>('/admin/edu/services', payload);
     const raw = response.data as any;
-    return (raw?.data?.service ?? raw?.service ?? raw) as any;
+    return (raw?.data?.service ?? raw?.service ?? raw) as AdminManagedService;
   }
 
-  static async updateService(id: string, payload: { name: { ar: string; en: string }; description?: { ar: string; en: string } }) {
+  static async updateService(id: string, payload: AdminServicePayload): Promise<AdminManagedService> {
     const response = await apiClient.put<any>(`/admin/edu/services/${id}`, payload);
     const raw = response.data as any;
-    return (raw?.data?.service ?? raw?.service ?? raw) as any;
+    return (raw?.data?.service ?? raw?.service ?? raw) as AdminManagedService;
   }
 
   static async toggleServiceStatus(id: string) {

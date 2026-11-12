@@ -5,7 +5,13 @@ import {
   UseQueryOptions,
   UseMutationOptions 
 } from '@tanstack/react-query';
-import { AdminService, AdminDashboardStats, PaginatedResponse } from '../services/AdminService';
+import {
+  AdminService,
+  AdminDashboardStats,
+  AdminManagedService,
+  AdminServicePayload,
+  PaginatedResponse,
+} from '../services/AdminService';
 import { 
   Project, 
   Educator, 
@@ -38,7 +44,9 @@ export const adminQueryKeys = {
   managedItems: (type: string) => [...adminQueryKeys.all, 'managedItems', type] as const,
   activityFeed: (params: any = {}) => [...adminQueryKeys.all, 'activityFeed', params] as const,
   academicMajors: (params: any = {}) => [...adminQueryKeys.all, 'academicMajors', params] as const,
-  services: (params: any = {}) => [...adminQueryKeys.all, 'services', params] as const,
+  servicesRoot: () => [...adminQueryKeys.all, 'services'] as const,
+  services: (params: any = {}) => [...adminQueryKeys.servicesRoot(), params] as const,
+  service: (id: string) => [...adminQueryKeys.servicesRoot(), 'detail', id] as const,
   skills: (params: any = {}) => [...adminQueryKeys.all, 'skills', params] as const,
 };
 
@@ -333,106 +341,53 @@ export const useDeleteAcademicMajor = (
 // Services
 export const useAdminServices = (
   params?: Parameters<typeof AdminService.getServices>[0],
-  options?: Omit<UseQueryOptions<any[], Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<Awaited<ReturnType<typeof AdminService.getServices>>, Error>, 'queryKey' | 'queryFn'>
 ) => {
-  return useQuery<any[], Error>({
+  return useQuery<Awaited<ReturnType<typeof AdminService.getServices>>, Error>({
     queryKey: adminQueryKeys.services(params),
     queryFn: () => AdminService.getServices(params),
     ...options,
   });
 };
 
+export const useAdminService = (
+  id: string,
+  options?: Omit<UseQueryOptions<AdminManagedService, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<AdminManagedService, Error>({
+    queryKey: adminQueryKeys.service(id),
+    queryFn: () => AdminService.getService(id),
+    enabled: Boolean(id),
+    ...options,
+  });
+};
+
 export const useCreateService = (
-  options?: UseMutationOptions<any, Error, { name: { ar: string; en: string }; description?: { ar: string; en: string } }>
+  options?: UseMutationOptions<AdminManagedService, Error, AdminServicePayload>
 ) => {
   const queryClient = useQueryClient();
-  return useMutation<any, Error, { name: { ar: string; en: string }; description?: { ar: string; en: string } }>({
-    mutationFn: (payload) => AdminService.createService(payload),
-    onMutate: async (vars) => {
-      await queryClient.cancelQueries({ queryKey: adminQueryKeys.services() });
-      const previous = queryClient.getQueriesData<any[]>({ queryKey: adminQueryKeys.services() });
-      const temp = { id: `temp-${Date.now()}`, name: vars.name, description: vars.description, status: 'ACTIVE' } as any;
-      previous.forEach(([key, old]) => {
-        queryClient.setQueryData(key, (Array.isArray(old) ? [...old, temp] : [temp]));
-      });
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      ctx?.previous?.forEach?.(([key, data]: any) => queryClient.setQueryData(key, data));
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.services() });
-    },
-    onSuccess: (data, vars, ctx) => {
-      const datasets = queryClient.getQueriesData<any[]>({ queryKey: adminQueryKeys.services() });
-      datasets.forEach(([key, list]) => {
-        if (!Array.isArray(list)) return;
-        const idx = list.findIndex((i: any) => String(i.id).startsWith('temp-'));
-        if (idx >= 0) {
-          const next = list.slice();
-          next[idx] = data;
-          queryClient.setQueryData(key, next);
-        }
-      });
-      options?.onSuccess?.(data, vars, ctx);
-    },
+  return useMutation<AdminManagedService, Error, AdminServicePayload>({
+    mutationFn: AdminService.createService,
     ...options,
+    onSuccess: (data, vars, onMutateResult, context) => {
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.servicesRoot() });
+      options?.onSuccess?.(data, vars, onMutateResult, context);
+    },
   });
 };
 
 export const useUpdateService = (
-  options?: UseMutationOptions<any, Error, { id: string; payload: { name: { ar: string; en: string }; description?: { ar: string; en: string } } }>
+  options?: UseMutationOptions<AdminManagedService, Error, { id: string; payload: AdminServicePayload }>
 ) => {
   const queryClient = useQueryClient();
-  return useMutation<any, Error, { id: string; payload: { name: { ar: string; en: string }; description?: { ar: string; en: string } } }>({
+  return useMutation<AdminManagedService, Error, { id: string; payload: AdminServicePayload }>({
     mutationFn: ({ id, payload }) => AdminService.updateService(id, payload),
-    onMutate: async (vars) => {
-      await queryClient.cancelQueries({ queryKey: adminQueryKeys.services() });
-      const previous = queryClient.getQueriesData<any[]>({ queryKey: adminQueryKeys.services() });
-      previous.forEach(([key, list]) => {
-        if (!Array.isArray(list)) return;
-        queryClient.setQueryData(key, list.map((i: any) => String(i.id) === String(vars.id) ? { ...i, name: vars.payload.name, description: vars.payload.description } : i));
-      });
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      ctx?.previous?.forEach?.(([key, data]: any) => queryClient.setQueryData(key, data));
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.services() });
-    },
-    onSuccess: (data, vars, ctx) => {
-      options?.onSuccess?.(data, vars, ctx);
-    },
     ...options,
-  });
-};
-
-export const useToggleServiceStatus = (
-  options?: UseMutationOptions<any, Error, string>
-) => {
-  const queryClient = useQueryClient();
-  return useMutation<any, Error, string>({
-    mutationFn: (id) => AdminService.toggleServiceStatus(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: adminQueryKeys.services() });
-      const previous = queryClient.getQueriesData<any[]>({ queryKey: adminQueryKeys.services() });
-      previous.forEach(([key, list]) => {
-        if (!Array.isArray(list)) return;
-        queryClient.setQueryData(key, list.map((i: any) => String(i.id) === String(id) ? { ...i, status: String(i.status).toLowerCase() === 'active' ? 'INACTIVE' : 'ACTIVE' } : i));
-      });
-      return { previous };
+    onSuccess: (data, vars, onMutateResult, context) => {
+      queryClient.setQueryData(adminQueryKeys.service(vars.id), data);
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.servicesRoot() });
+      options?.onSuccess?.(data, vars, onMutateResult, context);
     },
-    onError: (_err, _vars, ctx) => {
-      ctx?.previous?.forEach?.(([key, data]: any) => queryClient.setQueryData(key, data));
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.services() });
-    },
-    onSuccess: (data, id, ctx) => {
-      options?.onSuccess?.(data, id, ctx);
-    },
-    ...options,
   });
 };
 
@@ -442,25 +397,12 @@ export const useDeleteService = (
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: (id) => AdminService.deleteService(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: adminQueryKeys.services() });
-      const previous = queryClient.getQueriesData<any[]>({ queryKey: adminQueryKeys.services() });
-      previous.forEach(([key, list]) => {
-        if (!Array.isArray(list)) return;
-        queryClient.setQueryData(key, list.filter((i: any) => String(i.id) !== String(id)));
-      });
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      ctx?.previous?.forEach?.(([key, data]: any) => queryClient.setQueryData(key, data));
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.services() });
-    },
-    onSuccess: (data, id, ctx) => {
-      options?.onSuccess?.(data, id, ctx);
-    },
     ...options,
+    onSuccess: (data, id, onMutateResult, context) => {
+      queryClient.removeQueries({ queryKey: adminQueryKeys.service(id) });
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.servicesRoot() });
+      options?.onSuccess?.(data, id, onMutateResult, context);
+    },
   });
 };
 
