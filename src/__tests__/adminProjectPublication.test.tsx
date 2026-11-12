@@ -15,7 +15,11 @@ beforeAll(() => {
   };
 });
 
-const renderProjectDetail = (creationType: ProjectCreationType, isPublished = false) => {
+const renderProjectDetail = (
+  creationType: ProjectCreationType,
+  isPublished = false,
+  educationalRequest?: Project['educationalRequest'],
+) => {
   const project: Project = {
     id: 'project-1',
     title: 'مشروع تجريبي',
@@ -29,7 +33,8 @@ const renderProjectDetail = (creationType: ProjectCreationType, isPublished = fa
     createdBy: '',
     createdAt: '',
     deadline: null,
-    educationalRequestId: null,
+    educationalRequestId: educationalRequest?.id ?? null,
+    educationalRequest,
     activityLog: [],
   };
 
@@ -105,6 +110,16 @@ describe('admin project publication and task offers', () => {
     expect(html).toContain('نشر المشروع للعروض');
     expect(html).toContain('متوقف');
     expect(html).toContain('عروض المهام (0)');
+  });
+
+  it('shows the catalog service name on the linked project', () => {
+    const html = renderProjectDetail(ProjectCreationType.FROM_REQUEST, false, {
+      id: 'request-1',
+      title: 'طلب طاقة',
+      serviceName: 'تصميم نظام طاقة شمسية',
+    });
+
+    expect(html).toContain('تصميم نظام طاقة شمسية');
   });
 
   describe('task bid actions', () => {

@@ -434,8 +434,11 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
     const remainingBudget = projectBudget === null ? null : projectBudget - totalCost;
     const utilizationPercentage = projectBudget && projectBudget > 0 ? (totalCost / projectBudget) * 100 : 0;
 
-    const linkedRequest = project.educationalRequestId ? educationalRequests.find(r => r.id === project.educationalRequestId) : null;
-    const requester = linkedRequest ? users.find(u => u.id === linkedRequest.requesterId) : null;
+    const linkedRequest = (project.educationalRequest?.serviceName ? project.educationalRequest : null)
+        ?? (project.educationalRequestId ? educationalRequests.find(r => r.id === project.educationalRequestId) : null);
+    const requester = linkedRequest && 'requesterId' in linkedRequest
+        ? users.find(u => u.id === linkedRequest.requesterId)
+        : null;
 
     const openAssignModalForTask = (task: Task) => {
         setTaskToAssign(task);
@@ -529,12 +532,17 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
                             </button>
                         </div>
 
-                        {linkedRequest && requester && (
+                        {linkedRequest && (
                             <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-md border dark:border-gray-700">
                                 <h3 className="font-bold mb-3 flex items-center"><LinkIcon className="w-5 h-5 me-2 text-gray-400" />طلب مرتبط</h3>
                                 <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                     <p className="font-semibold text-brand-primary hover:underline cursor-pointer" onClick={() => navigateTo('requestDetail', linkedRequest.id)}>{linkedRequest.title}</p>
-                                    <p className="text-xs text-gray-500">مقدم من: {requester.name}</p>
+                                    {(requester?.name || linkedRequest.requesterName) && (
+                                        <p className="text-xs text-gray-500">مقدم من: {requester?.name || linkedRequest.requesterName}</p>
+                                    )}
+                                    {linkedRequest.serviceName && (
+                                        <p className="text-xs text-gray-500">نوع الخدمة: {linkedRequest.serviceName}</p>
+                                    )}
                                 </div>
                             </div>
                         )}

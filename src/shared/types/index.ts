@@ -477,6 +477,14 @@ export interface Project {
     totalTasks?: number;
   };
   educationalRequestId: string | null;
+  educationalRequest?: {
+    id: string;
+    title: string;
+    requesterName?: string | null;
+    serviceType?: string | null;
+    serviceId?: string | null;
+    serviceName?: string | null;
+  } | null;
   activityLog: ProjectActivityLog[];
   requesterName?: string;
   // Educator opportunity flags (optional)
@@ -589,6 +597,8 @@ export interface EducationalRequest {
     code?: string;
     requesterName?: string;
     serviceType?: string | null;
+    serviceId?: string | null;
+    serviceName?: string | null;
     projectSiteType?: string | null;
     solarSystemType?: string | null;
     title: string;

@@ -85,6 +85,8 @@ const RequestDetailContainer: React.FC<Props> = ({ requestId, navigateTo }) => {
     id: raw.id,
     code: raw.code,
     serviceType: raw.serviceType || raw.type || null,
+    serviceId: raw.serviceId || raw.service_id || null,
+    serviceName: raw.serviceName || raw.service_name || null,
     projectSiteType: raw.projectSiteType || raw.project_site_type || null,
     solarSystemType: raw.solarSystemType || raw.solar_system_type || null,
     title: raw.title,

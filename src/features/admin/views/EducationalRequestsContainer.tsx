@@ -62,7 +62,11 @@ const EducationalRequestsContainer: React.FC<Props> = ({ navigateTo }) => {
     const requests: EducationalRequest[] = list.map((r: any) => ({
       id: r.id,
       title: r.title,
+      requesterName: r.requesterName || r.requester?.name || '',
       description: r.description || '',
+      serviceType: r.serviceType || r.service_type || null,
+      serviceId: r.serviceId || r.service_id || null,
+      serviceName: r.serviceName || r.service_name || null,
       subject: r.subject || r.academicMajor || '',
       educationLevel: r.educationLevel || '',
       requesterId: r.requesterId || r.requester?.id || r.requesterName || 'unknown',

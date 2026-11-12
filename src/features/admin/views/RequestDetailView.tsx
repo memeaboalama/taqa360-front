@@ -421,14 +421,18 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                                             <div className="space-y-3 text-sm">
                                                 <div>
                                                         <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع الخدمة المطلوبة</label>
-                                                        <select name="serviceType" value={formData.serviceType ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
-                                                            <option value="">اختر نوع الخدمة...</option>
-                                                            <option value="general">خدمة عامة</option>
-                                                            <option value="task">مهمة</option>
-                                                            <option value="project">مشروع</option>
-                                                            <option value="research">بحث</option>
-                                                            <option value="explanation">شرح / استشارة تعليمية</option>
-                                                        </select>
+                                                        {request.serviceName ? (
+                                                            <p className="rounded-lg bg-gray-50 p-2 text-sm text-gray-900 dark:bg-gray-700 dark:text-gray-100">{request.serviceName}</p>
+                                                        ) : (
+                                                            <select name="serviceType" value={formData.serviceType ?? ''} onChange={handleInputChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-primary block w-full p-2 dark:bg-gray-700 dark:border-gray-600">
+                                                                <option value="">اختر نوع الخدمة...</option>
+                                                                <option value="general">خدمة عامة</option>
+                                                                <option value="task">مهمة</option>
+                                                                <option value="project">مشروع</option>
+                                                                <option value="research">بحث</option>
+                                                                <option value="explanation">شرح / استشارة تعليمية</option>
+                                                            </select>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">نوع موقع المشروع</label>
@@ -461,7 +465,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                                             </div>
                                         ) : (
                                             <div className="space-y-2 text-sm">
-                                                <div className="flex justify-between"><span>نوع الخدمة المطلوبة:</span> <strong>{formatServiceType(request.serviceType)}</strong></div>
+                                                <div className="flex justify-between"><span>نوع الخدمة المطلوبة:</span> <strong>{request.serviceName || formatServiceType(request.serviceType)}</strong></div>
                                                 <div className="flex justify-between"><span>نوع موقع المشروع:</span> <strong>{formatOption(request.projectSiteType, siteTypeLabels)}</strong></div>
                                                 <div className="flex justify-between"><span>نوع نظام الطاقة الشمسية:</span> <strong>{formatOption(request.solarSystemType, solarSystemLabels)}</strong></div>
                                                 <div className="flex justify-between"><span>تاريخ مراجعة الطلب:</span> <strong>{request.reviewedAt ? formatDateTime(request.reviewedAt) : 'غير مراجع'}</strong></div>
