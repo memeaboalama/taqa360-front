@@ -589,6 +589,7 @@ export interface EducationalRequest {
     code?: string;
     requesterName?: string;
     serviceType?: string | null;
+    serviceName?: string | null;
     projectSiteType?: string | null;
     solarSystemType?: string | null;
     title: string;

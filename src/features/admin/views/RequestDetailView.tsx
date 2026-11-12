@@ -461,7 +461,7 @@ const RequestDetailView: React.FC<RequestDetailViewProps> = (props) => {
                                             </div>
                                         ) : (
                                             <div className="space-y-2 text-sm">
-                                                <div className="flex justify-between"><span>نوع الخدمة المطلوبة:</span> <strong>{formatServiceType(request.serviceType)}</strong></div>
+                                                <div className="flex justify-between"><span>نوع الخدمة المطلوبة:</span> <strong>{request.serviceName || formatServiceType(request.serviceType)}</strong></div>
                                                 <div className="flex justify-between"><span>نوع موقع المشروع:</span> <strong>{formatOption(request.projectSiteType, siteTypeLabels)}</strong></div>
                                                 <div className="flex justify-between"><span>نوع نظام الطاقة الشمسية:</span> <strong>{formatOption(request.solarSystemType, solarSystemLabels)}</strong></div>
                                                 <div className="flex justify-between"><span>تاريخ مراجعة الطلب:</span> <strong>{request.reviewedAt ? formatDateTime(request.reviewedAt) : 'غير مراجع'}</strong></div>
