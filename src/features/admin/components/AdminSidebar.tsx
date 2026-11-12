@@ -213,8 +213,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, is
             isCollapsed={isCollapsed}
           />
         </ul>
-        <p className={`px-3 pt-4 pb-2 text-xs font-semibold text-gray-400 uppercase ${isCollapsed ? 'text-center' : ''}`}>{isCollapsed ? '•••' : t('tools')}</p>
-        <ul className="space-y-2 font-medium">
+        {/* <p className={`px-3 pt-4 pb-2 text-xs font-semibold text-gray-400 uppercase ${isCollapsed ? 'text-center' : ''}`}>{isCollapsed ? '•••' : t('tools')}</p> */}
+        {/* <ul className="space-y-2 font-medium">
           <NavItem
             icon={<ReceiptPercentIcon className="w-6 h-6" />}
             label={t('finance')}
@@ -243,7 +243,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, is
             onClick={() => navigateTo('support')}
             isCollapsed={isCollapsed}
           />
-        </ul>
+        </ul> */}
       </div>
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <ul className="space-y-2 font-medium">

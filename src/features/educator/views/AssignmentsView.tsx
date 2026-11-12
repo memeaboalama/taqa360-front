@@ -191,7 +191,7 @@ const AssignmentsView: React.FC<AssignmentsViewProps> = ({ navigateTo, addToast 
     );
   }
 
-  if (assignmentsQuery.error) {
+  if (assignmentsQuery.isLoadingError) {
     return (
       <div className="space-y-6 sm:space-y-8 animate-fade-in">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">{t('assignments.title')}</h1>
@@ -215,6 +215,12 @@ const AssignmentsView: React.FC<AssignmentsViewProps> = ({ navigateTo, addToast 
         <p className="text-slate-500 dark:text-slate-400 mt-1">{t('assignments.subtitle')}</p>
       </div>
 
+      {assignmentsQuery.isRefetchError && (
+        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
+          {t('assignments.error_loading')}
+        </div>
+      )}
+
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2 sm:p-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -234,9 +240,6 @@ const AssignmentsView: React.FC<AssignmentsViewProps> = ({ navigateTo, addToast 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        {assignmentsQuery.isFetching && list.length > 0 && (
-          <div className="col-span-full text-center text-xs text-slate-500 dark:text-slate-400">{t('loading')}</div>
-        )}
         {list.map((item) => (
           <Row key={item.id}
             item={item}

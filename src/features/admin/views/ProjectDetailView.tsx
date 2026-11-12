@@ -13,7 +13,7 @@ import { useLanguage } from '../../../app/providers/LanguageProvider';
 import EditAssignmentModal from '../components/modals/EditAssignmentModal';
 import ProjectAttachmentsTab from '../components/ProjectAttachmentsTab';
 import ProjectDeliverablesTab from '../components/ProjectDeliverablesTab';
-import { resolveProjectTeam } from '../../../shared/utils';
+import { getProjectOverviewMetrics, resolveProjectTeam } from '../../../shared/utils';
 
 interface ProjectDetailViewProps {
     project: Project;
@@ -199,10 +199,13 @@ const TaskCard: React.FC<{
             {cancelAction && <ConfirmationModal
                 isOpen={true}
                 onClose={() => setCancelAction(null)}
-                onConfirm={(reason: string) => {
-                    if (cancelAssignmentMutation) {
-                        cancelAssignmentMutation.mutate({ assignmentId: cancelAction.assignmentId, reason });
-                    }
+                onConfirm={async (reason: string) => {
+                    await cancelAssignmentMutation.mutateAsync({
+                        assignmentId: cancelAction.assignmentId,
+                        reason,
+                        projectId: project.id,
+                        taskId: task.id,
+                    });
                     setCancelAction(null);
                 }}
                 title="تأكيد إلغاء التعيين"
@@ -377,7 +380,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
 
 
     const projectTasks = project.tasks || [];
-    const completedTasks = projectTasks.filter(t => t.status === ProjectStatus.COMPLETED).length;
+    const completedTasks = projectTasks.filter(t => String(t.status ?? '').toUpperCase() === ProjectStatus.COMPLETED).length;
     const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
 
     const handleTaskSubmit = async (taskData: Omit<Task, 'id' | 'status' | 'assignments' | 'biddingStatus' | 'subTasks' | 'notes' | 'attachments' | 'activityLog' | 'creationDate' | 'deliverables'>) => {
@@ -423,13 +426,13 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
         [project, educators]
     );
 
-    const totalCost = useMemo(() => {
-        return (project.tasks || [])
-            .flatMap(t => (t.assignments || []))
-            .filter(a => a.status === AssignmentStatus.ACCEPTED && a.amount)
-            .reduce((sum, a) => sum + (a.amount || 0), 0);
-    }, [project.tasks]);
-    const financial: any = (project as any).financial || null;
+    const overviewMetrics = useMemo(() => getProjectOverviewMetrics(project), [project]);
+    const { taskCounts: taskStatusCounts, assignmentCounts: assignmentStatusCounts, assignments: projectAssignments } = overviewMetrics;
+    const totalCost = overviewMetrics.acceptedCost;
+    const parsedBudget = project.budget == null || project.budget === '' ? null : Number(project.budget);
+    const projectBudget = parsedBudget !== null && Number.isFinite(parsedBudget) ? parsedBudget : null;
+    const remainingBudget = projectBudget === null ? null : projectBudget - totalCost;
+    const utilizationPercentage = projectBudget && projectBudget > 0 ? (totalCost / projectBudget) * 100 : 0;
 
     const linkedRequest = project.educationalRequestId ? educationalRequests.find(r => r.id === project.educationalRequestId) : null;
     const requester = linkedRequest ? users.find(u => u.id === linkedRequest.requesterId) : null;
@@ -570,6 +573,28 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
                         <div className="animate-fade-in space-y-6">
                             {activeTab === 'overview' && (
                                 <div className="space-y-6">
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border dark:border-gray-700">
+                                            <h3 className="font-bold mb-4 text-lg">ملخص المهام ({projectTasks.length})</h3>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">قيد الانتظار: <strong>{taskStatusCounts.pending}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">قيد التنفيذ: <strong>{taskStatusCounts.inProgress}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">مكتملة: <strong>{taskStatusCounts.completed}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">ملغاة: <strong>{taskStatusCounts.cancelled}</strong></div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border dark:border-gray-700">
+                                            <h3 className="font-bold mb-4 text-lg">ملخص التعيينات ({projectAssignments.length})</h3>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">مقبولة: <strong>{assignmentStatusCounts.accepted}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">قيد الانتظار: <strong>{assignmentStatusCounts.pending}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">مرفوضة: <strong>{assignmentStatusCounts.rejected}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">قيد التنفيذ: <strong>{assignmentStatusCounts.inProgress}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">مكتملة: <strong>{assignmentStatusCounts.completed}</strong></div>
+                                                <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3">ملغاة: <strong>{assignmentStatusCounts.cancelled}</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border dark:border-gray-700">
                                         <h3 className="font-bold mb-3 flex items-center text-lg"><BookOpenIcon className="w-5 h-5 me-2 text-gray-400" />وصف المشروع</h3>
                                         <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{project.description}</p>
@@ -581,19 +606,19 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = (props) => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                                 <p className="text-sm text-gray-500">الميزانية المخصصة</p>
-                                                <p className="text-2xl font-bold text-green-600">{(financial?.totalBudget ?? project.budget) ? `${Number(financial?.totalBudget ?? project.budget).toLocaleString()} ريال` : 'غير محدد'}</p>
+                                                <p className="text-2xl font-bold text-green-600">{projectBudget !== null && Number.isFinite(projectBudget) ? `${projectBudget.toLocaleString()} ريال` : 'غير محدد'}</p>
                                             </div>
                                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                                 <p className="text-sm text-gray-500">التكلفة الفعلية (المبالغ المعينة)</p>
-                                                <p className="text-2xl font-bold text-brand-primary">{Number(financial?.assignedCost ?? totalCost).toLocaleString()} ريال</p>
+                                                <p className="text-2xl font-bold text-brand-primary">{totalCost.toLocaleString()} ريال</p>
                                             </div>
                                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                                 <p className="text-sm text-gray-500">الميزانية المتبقية</p>
-                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{Number(financial?.remainingBudget ?? Math.max((project.budget || 0) - totalCost, 0)).toLocaleString()} ريال</p>
+                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{remainingBudget === null ? 'غير محدد' : `${remainingBudget.toLocaleString()} ريال`}</p>
                                             </div>
                                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                                 <p className="text-sm text-gray-500">نسبة الاستخدام</p>
-                                                <p className="text-2xl font-bold" style={{ color: 'var(--primary-color)' }}>{Number(financial?.utilizationPercentage ?? ((project.budget ? (totalCost / (project.budget || 1)) * 100 : 0))).toFixed(0)}%</p>
+                                                <p className="text-2xl font-bold" style={{ color: 'var(--primary-color)' }}>{utilizationPercentage.toFixed(0)}%</p>
                                             </div>
                                         </div>
                                     </div>

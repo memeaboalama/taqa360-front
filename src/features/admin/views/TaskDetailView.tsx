@@ -5,6 +5,7 @@ import Avatar from '../../../shared/components/Avatar';
 import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
 import { ADMIN_USER } from '../../../shared/constants';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
+import { formatFileSize } from '../../../shared/utils';
 
 interface TaskDetailViewProps {
     project: Project;
@@ -193,7 +194,7 @@ const SubTaskItem: React.FC<{ subTask: SubTask, onToggle: () => void, onEdit?: (
                                 <a href={att.url} target="_blank" rel="noopener noreferrer" key={att.id} className="flex items-center gap-2 text-xs text-brand-primary hover:underline">
                                     <PaperclipIcon className="w-3 h-3"/>
                                     <span className="font-semibold">{att.title || att.name}</span>
-                                    <span className="text-gray-400">({att.size})</span>
+                                    <span className="text-gray-400">({formatFileSize(att.size)})</span>
                                 </a>
                             ))}
                         </div>
@@ -463,7 +464,7 @@ const AdminTaskDetailView: React.FC<TaskDetailViewProps> = (props) => {
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{d.original_name || d.name || d.title}</p>
                                                     {d.size !== undefined && d.size !== null && d.size !== '' && (
-                                                        <p className="text-xs text-gray-500 mt-0.5">{typeof d.size === 'number' ? `${d.size} MB` : d.size}</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">{formatFileSize(d.size)}</p>
                                                     )}
                                                 </div>
                                                 {d.url && (

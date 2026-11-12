@@ -5,17 +5,11 @@ import AttachmentPreviewModal from '../../../shared/components/modals/Attachment
 import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
 import { useProjectAttachments, useCreateProjectAttachment, useUpdateProjectAttachment, useDeleteProjectAttachment } from '../../../core/hooks/useAdminQueries';
 import { useData } from '../../../app/providers/DataProvider';
+import { formatFileSize } from '../../../shared/utils';
 
 interface Props {
   projectId: string;
 }
-
-const formatSize = (s: string) => {
-  const num = Number(String(s).replace(/[^\d.]/g, ''));
-  if (!isFinite(num)) return s || '';
-  if (num < 1) return `${(num * 1024).toFixed(0)} KB`;
-  return `${num.toFixed(2)} MB`;
-};
 
 const isImageFile = (url: string, type?: string): boolean => {
   return /\.(png|jpe?g|gif|webp|svg)$/i.test(url) || (type ? /image\//.test(type) : false);
@@ -143,7 +137,7 @@ const AttachmentItemDisplay: React.FC<{
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
               <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{attachment.title || attachment.name}</h4>
-              <span className="inline-block px-2 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 flex-shrink-0">{formatSize(attachment.size)}</span>
+              <span className="inline-block px-2 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 flex-shrink-0">{formatFileSize(attachment.size)}</span>
             </div>
             {attachment.description && (
               <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{attachment.description}</p>

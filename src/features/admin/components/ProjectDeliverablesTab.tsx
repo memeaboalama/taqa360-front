@@ -6,23 +6,11 @@ import {
   ClockIcon,
 } from '../../../shared/components/Icons';
 import { useProjectDeliverables, useSetProjectDeliverableApproval } from '../../../core/hooks/useAdminQueries';
+import { formatFileSize } from '../../../shared/utils';
 
 interface Props {
   projectId: string;
 }
-
-const formatSize = (bytes: number | string | null | undefined): string => {
-  const n = Number(bytes);
-  if (!Number.isFinite(n) || n <= 0) return '-';
-  const units = ['بايت', 'ك.ب', 'م.ب', 'ج.ب'];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i += 1;
-  }
-  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-};
 
 const statusLabel = (status: string): { label: string; color: string } => {
   switch (String(status).toLowerCase()) {
@@ -152,7 +140,7 @@ const ProjectDeliverablesTab: React.FC<Props> = ({ projectId }) => {
                           {String(f.uploadedAt).slice(0, 16)}
                         </span>
                       )}
-                      <span>{formatSize(f.size)}</span>
+                      <span>{formatFileSize(f.size)}</span>
                       {f.approvedAt && <span className="text-green-700">معتمد للعميل</span>}
                     </div>
                   </div>

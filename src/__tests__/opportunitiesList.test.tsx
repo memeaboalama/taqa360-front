@@ -113,6 +113,26 @@ const spy = stubApi(API_BODY);
 });
 
 describe('opportunities list renders the opportunities returned by the API', () => {
+  it('shows the Arabic not-set translation when an opportunity has no budget', async () => {
+    const spy = stubApi(API_BODY);
+    try {
+      const body = {
+        ...API_BODY,
+        data: {
+          projects: [
+            { id: 'without-budget', title: 'فرصة بدون ميزانية', description: 'd', budget: null, tags: [] },
+          ],
+        },
+      };
+      const html = await renderList(body);
+
+      expect(html).toContain('غير محدد');
+      expect(html).not.toContain('notSet');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('renders a card per project and the result-count line', async () => {
     const spy = stubApi(API_BODY);
     try {
@@ -131,4 +151,3 @@ describe('opportunities list renders the opportunities returned by the API', () 
     }
   });
 });
-

@@ -12,6 +12,45 @@ export const formatDate = (date: string | Date | null | undefined, locale: strin
   });
 };
 
+export const formatFileSize = (value: number | string | null | undefined): string => {
+  if (value == null || value === '') return '-';
+
+  const raw = String(value).trim();
+  const match = raw.match(/^([\d.,]+)\s*(bytes?|b|kb|kib|mb|mib|gb|gib|بايت|بايتات|ك\.ب|م\.ب|ج\.ب)?$/i);
+  if (!match) return raw;
+
+  const amount = Number(match[1].replace(',', '.'));
+  if (!Number.isFinite(amount) || amount < 0) return raw;
+
+  const unit = (match[2] ?? 'bytes').toLowerCase();
+  const unitPower: Record<string, number> = {
+    byte: 0,
+    bytes: 0,
+    b: 0,
+    بايت: 0,
+    بايتات: 0,
+    kb: 1,
+    kib: 1,
+    'ك.ب': 1,
+    mb: 2,
+    mib: 2,
+    'م.ب': 2,
+    gb: 3,
+    gib: 3,
+    'ج.ب': 3,
+  };
+  const bytes = amount * 1024 ** (unitPower[unit] ?? 0);
+  const units = ['بايت', 'ك.ب', 'م.ب', 'ج.ب'];
+  let size = bytes;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+
+  return `${Number(size.toFixed(index === 0 || size >= 10 ? 0 : 1))} ${units[index]}`;
+};
+
 /** Shape we need from an assignment, tolerant of the API's nested/flat forms. */
 export interface TeamAssignmentLike {
   id?: string;
@@ -92,4 +131,40 @@ export const resolveProjectTeam = (
       };
     })
     .filter((member) => member.name !== 'Unknown' || educatorsById.has(member.id));
+};
+
+export const getProjectOverviewMetrics = (project: any) => {
+  const tasks: any[] = Array.isArray(project?.tasks) ? project.tasks : [];
+  const assignments: any[] = tasks.flatMap((task) => (
+    Array.isArray(task?.assignments)
+      ? task.assignments
+      : Array.isArray(task?.assignedEducators)
+        ? task.assignedEducators
+        : []
+  ));
+  const taskCounts = { pending: 0, inProgress: 0, completed: 0, cancelled: 0 };
+  const assignmentCounts = { accepted: 0, pending: 0, rejected: 0, inProgress: 0, completed: 0, cancelled: 0 };
+  let acceptedCost = 0;
+
+  for (const task of tasks) {
+    const status = normalizeStatus(task?.status);
+    if (status === 'PENDING') taskCounts.pending += 1;
+    else if (status === 'IN_PROGRESS') taskCounts.inProgress += 1;
+    else if (status === 'COMPLETED') taskCounts.completed += 1;
+    else if (status === 'CANCELED' || status === 'CANCELLED') taskCounts.cancelled += 1;
+  }
+
+  for (const assignment of assignments) {
+    const status = normalizeStatus(assignment?.status ?? assignment?.assignment_status);
+    if (status === 'ACCEPTED') {
+      assignmentCounts.accepted += 1;
+      acceptedCost += Number(assignment?.amount) || 0;
+    } else if (status === 'PENDING') assignmentCounts.pending += 1;
+    else if (status === 'REJECTED' || status === 'REJECTED_BY_EDUCATOR') assignmentCounts.rejected += 1;
+    else if (status === 'IN_PROGRESS') assignmentCounts.inProgress += 1;
+    else if (status === 'COMPLETED') assignmentCounts.completed += 1;
+    else if (status === 'CANCELLED') assignmentCounts.cancelled += 1;
+  }
+
+  return { tasks, assignments, taskCounts, assignmentCounts, acceptedCost };
 };

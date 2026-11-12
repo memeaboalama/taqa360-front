@@ -105,7 +105,7 @@ const ProjectCard: React.FC<{
             <div className="grid grid-cols-3 gap-3 text-center my-3 text-xs sm:text-sm">
                  <div className="min-w-0">
                     <p className="text-slate-500 dark:text-slate-400 truncate">{t('projectsView.budget')}</p>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 truncate">{project.budget ? `${project.budget.toLocaleString()} ${t('sarCurrency')}` : 'N/A'}</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 truncate">{project.budget ? `${project.budget.toLocaleString()} ${t('sarCurrency')}` : t('projectsView.notSet')}</p>
                 </div>
                 <div className="border-x border-slate-100 dark:border-slate-700 min-w-0">
                     <p className="text-slate-500 dark:text-slate-400 truncate">{t('projectsView.tasks')}</p>

@@ -769,19 +769,13 @@ export function useCancelAssignment() {
   const queryClient = useQueryClient();
   return useBaseMutation(
     ['admin', 'assignment', 'cancel'],
-    ({ assignmentId, reason }: { assignmentId: string; reason: string }) =>
+    ({ assignmentId, reason }: { assignmentId: string; reason: string; projectId: string; taskId: string }) =>
       adminService.cancelAssignment(assignmentId, reason),
     {
-      onSuccess: (data, variables) => {
-        // After cancelling, invalidate related task and project caches so UI updates
-        QueryKeyFactory.invalidateAll(queryClient, 'projects');
-        queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'projects' });
-        // If API returned updated task, update it
-        const task = (data as any)?.data?.task ?? (data as any)?.task ?? data;
-        if (task) {
-          queryClient.setQueryData(QueryKeyFactory.detail(QueryKeyFactory.QUERIES.TASKS, task.id), task);
-          QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.PROJECTS, task.project?.id || '');
-        }
+      onSuccess: (_data, variables) => {
+        QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.TASKS, variables.taskId);
+        QueryKeyFactory.invalidateDetail(queryClient, QueryKeyFactory.QUERIES.PROJECTS, variables.projectId);
+        QueryKeyFactory.invalidateList(queryClient, QueryKeyFactory.QUERIES.PROJECTS);
       }
     }
   );

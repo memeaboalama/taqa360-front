@@ -5,6 +5,7 @@ import { LanguageProvider } from '../app/providers/LanguageProvider';
 import ProjectDetailView from '../features/admin/views/ProjectDetailView';
 import BidsView from '../features/admin/views/BidsView';
 import { getAvailableBidActions, isEducatorAssignedToTask } from '../features/admin/views/BidsView';
+import { getProjectOverviewMetrics, resolveProjectTeam } from '../shared/utils';
 import { Bid, BidStatus, Project, ProjectCreationType, ProjectStatus, Task } from '../shared/types';
 
 beforeAll(() => {
@@ -57,6 +58,43 @@ const renderProjectDetail = (creationType: ProjectCreationType, isPublished = fa
 };
 
 describe('admin project publication and task offers', () => {
+  it('derives project task, assignment and team summaries from the current task assignments', () => {
+    const project = {
+      tasks: [
+        {
+          status: 'COMPLETED',
+          assignments: [
+            { status: 'accepted', amount: '125.50', educator: { id: 'educator-1', name: 'متخصص 1' } },
+            { status: 'PENDING', amount: 300, educator: { id: 'educator-2', name: 'متخصص 2' } },
+          ],
+        },
+        {
+          status: 'in_progress',
+          assignedEducators: [
+            { status: 'REJECTED', amount: 99, educator: { id: 'educator-3', name: 'متخصص 3' } },
+            { status: 'CANCELLED', amount: 50, educator: { id: 'educator-4', name: 'متخصص 4' } },
+          ],
+        },
+      ],
+    };
+
+    const metrics = getProjectOverviewMetrics(project);
+
+    expect(metrics.tasks).toHaveLength(2);
+    expect(metrics.taskCounts).toEqual({ pending: 0, inProgress: 1, completed: 1, cancelled: 0 });
+    expect(metrics.assignments).toHaveLength(4);
+    expect(metrics.assignmentCounts).toEqual({
+      accepted: 1,
+      pending: 1,
+      rejected: 1,
+      inProgress: 0,
+      completed: 0,
+      cancelled: 1,
+    });
+    expect(metrics.acceptedCost).toBe(125.5);
+    expect(resolveProjectTeam(project).map(({ id }) => id)).toEqual(['educator-1']);
+  });
+
   it.each([
     ProjectCreationType.PUBLIC,
     ProjectCreationType.FROM_REQUEST,

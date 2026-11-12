@@ -355,7 +355,7 @@ export interface Attachment {
   description?: string | null;
   name: string;
   url: string;
-  size: string;
+  size: number | string | null;
   type: string;
   uploadedBy?: 'admin' | 'provider';
   uploadedAt?: string;

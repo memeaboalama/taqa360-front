@@ -33,7 +33,7 @@ const buildPageList = (current: number, last: number, maxVisible = 7) => {
 };
 
 const formatBudget = (value: any, t: (key: string) => string) => {
-    if (value == null || value === '') return t('notSet') || 'غير محددة';
+    if (value == null || value === '') return t('projectsView.notSet');
     const num = typeof value === 'number' ? value : (Number(value) || 0);
     return `${num.toLocaleString()} ${t('sarCurrency')}`;
 };
