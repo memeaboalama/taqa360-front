@@ -1,5 +1,12 @@
-import { apiClient } from '../../core/api/client';
-import { ManagedItem } from '../types';
+import type { ManagedItem, SystemNotification } from '../types';
+import { apiClient } from '../../core/api/baseClient';
+
+export interface SystemNotificationsPage {
+  notifications: SystemNotification[];
+  currentPage: number;
+  lastPage: number;
+  total: number;
+}
 
 export interface SystemSettings {
   app_name: string;
@@ -25,8 +32,6 @@ export interface SystemStats {
   popular_skills: { name: string; count: number }[];
   popular_services: { name: string; count: number }[];
 }
-
-import { apiClient } from '../../core/api/baseClient';
 
 export class SystemService {
   /**
@@ -217,18 +222,22 @@ export class SystemService {
   /**
    * System Notifications (for admins)
    */
-  static async getSystemNotifications(): Promise<{
-    id: string;
-    type: 'info' | 'warning' | 'error' | 'success';
-    title: string;
-    message: string;
-    timestamp: string;
-    is_dismissible: boolean;
-  }[]> {
-    const response = await apiClient.get(
-      '/system/notifications'
+  static async getSystemNotifications(params: { page?: number; per_page?: number } = {}): Promise<SystemNotificationsPage> {
+    const response = await apiClient.get<{ notifications: SystemNotification[] }>(
+      '/admin/notifications',
+      params
     );
-    return response.data;
+    const page = response.pagination?.meta?.page;
+    if (!Array.isArray(response.data.notifications) || !page) {
+      throw new Error('Invalid notifications response from the server.');
+    }
+
+    return {
+      notifications: response.data.notifications,
+      currentPage: page.current,
+      lastPage: page.last,
+      total: page.total,
+    };
   }
 
   /**

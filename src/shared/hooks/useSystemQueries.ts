@@ -9,6 +9,7 @@ import {
   SystemService,
   SystemSettings,
   SystemStats,
+  SystemNotificationsPage,
 } from '../services/SystemService';
 import {
   ManagedItem,
@@ -41,7 +42,7 @@ export const systemQueryKeys = {
   languages: () => [...systemQueryKeys.all, 'languages'] as const,
   healthCheck: () => [...systemQueryKeys.all, 'healthCheck'] as const,
   versionInfo: () => [...systemQueryKeys.all, 'versionInfo'] as const,
-  systemNotifications: () => [...systemQueryKeys.all, 'systemNotifications'] as const,
+  systemNotifications: (accountId: string | null, page: number) => [...systemQueryKeys.all, 'systemNotifications', accountId, page] as const,
   featureFlags: () => [...systemQueryKeys.all, 'featureFlags'] as const,
   analytics: (timeframe?: 'day' | 'week' | 'month' | 'year') => [...systemQueryKeys.all, 'analytics', timeframe] as const,
   globalSearch: (query: string, types?: string[]) => [...systemQueryKeys.all, 'globalSearch', query, types] as const,
@@ -218,12 +219,15 @@ export const useSystemAnalytics = (
 };
 
 export const useSystemNotifications = (
-  options?: Omit<UseQueryOptions<SystemNotification[], Error>, 'queryKey' | 'queryFn'>
+  accountId: string | null,
+  page: number,
+  options?: Omit<UseQueryOptions<SystemNotificationsPage, Error>, 'queryKey' | 'queryFn'>
 ) => {
-  return useQuery<SystemNotification[], Error>({
-    queryKey: systemQueryKeys.systemNotifications(),
-    queryFn: SystemService.getSystemNotifications,
+  return useQuery<SystemNotificationsPage, Error>({
+    queryKey: systemQueryKeys.systemNotifications(accountId, page),
+    queryFn: () => SystemService.getSystemNotifications({ page, per_page: 10 }),
     ...options,
+    enabled: Boolean(accountId) && options?.enabled !== false,
   });
 };
 

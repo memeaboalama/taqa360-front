@@ -50,6 +50,7 @@ export type ViewType =
   'specializations' |
   'skills' |
   'services' |
+  'notifications' |
   'support' |
   'supportTicketDetail';
 
@@ -722,6 +723,19 @@ export interface AdminMessage {
     content: string;
     timestamp: string;
     isRead: boolean;
+}
+
+export interface SystemNotification {
+    id: string;
+    type: 'info' | 'warning' | 'error' | 'success';
+    title: string;
+    message: string;
+    timestamp: string;
+    is_dismissible: boolean;
+    audience: 'user' | 'driver' | 'merchant' | 'unknown';
+    delivery_status: 'pending' | 'sent' | 'partial' | 'failed' | 'no_recipients' | 'unknown';
+    sent_count: number;
+    failed_count: number;
 }
 
 // For Admin Settings

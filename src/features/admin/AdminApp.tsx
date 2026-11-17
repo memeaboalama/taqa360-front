@@ -17,6 +17,7 @@ import FinanceView from './views/FinanceView';
 import ReportsView from './views/ReportsView';
 import CalendarView from './views/CalendarView';
 import AdminSettingsView from './views/SettingsView';
+import NotificationsView from './views/NotificationsView';
 import EducatorApplicationsView from './views/EducatorApplicationsView';
 import RegistrationRequestsView from './views/RegistrationRequestsView';
 import EducatorApplicationDetailContainer from './views/EducatorApplicationDetailContainer';
@@ -120,6 +121,7 @@ const AdminApp: React.FC<AdminAppProps> = ({ onLogout }) => {
             case 'reports': return <ReportsView {...adminProps} projects={data.projects} educators={data.educators} invoices={data.invoices} />;
             case 'calendar': return <CalendarView {...adminProps} projects={data.projects} />;
             case 'settings': return <AdminSettingsView />;
+            case 'notifications': return <NotificationsView />;
             case 'specializations': return <SpecializationsView />;
             case 'skills': return <SkillsView />;
             case 'services': return <ServicesView />;

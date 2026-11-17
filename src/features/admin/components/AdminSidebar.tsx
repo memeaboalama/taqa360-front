@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DashboardIcon, SettingsIcon, UserCheckIcon, ProjectsIcon, ChevronDownIcon, UserPlusIcon, UserGroupIcon, UserMinusIcon, UsersIcon, ArrowLeftIcon, ArrowRightIcon, AcademicCapIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, SparklesIcon, BriefcaseIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
+import { DashboardIcon, SettingsIcon, UserCheckIcon, ProjectsIcon, ChevronDownIcon, UserPlusIcon, UserGroupIcon, UserMinusIcon, UsersIcon, ArrowLeftIcon, ArrowRightIcon, AcademicCapIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, SparklesIcon, BriefcaseIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon, BellIcon } from '../../../shared/components/Icons';
 import BrandLogo from '../../../shared/components/BrandLogo';
 import LanguageSwitcher from '../../../shared/components/LanguageSwitcher';
 import { ViewType } from '../../../shared/types';
@@ -186,6 +186,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, is
             label={t('users')}
             isActive={isUsersActive}
             onClick={() => navigateTo('users')}
+            isCollapsed={isCollapsed}
+          />
+          <NavItem
+            icon={<BellIcon className="w-6 h-6" />}
+            label={t('notifications')}
+            isActive={currentView === 'notifications'}
+            onClick={() => navigateTo('notifications')}
             isCollapsed={isCollapsed}
           />
         </ul>

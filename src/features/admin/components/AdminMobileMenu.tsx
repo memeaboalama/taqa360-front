@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ViewType } from '../../../shared/types';
-import { DashboardIcon, AcademicCapIcon, UsersIcon, UserCheckIcon, SettingsIcon, XIcon, ProjectsIcon, ChevronDownIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon } from '../../../shared/components/Icons';
+import { DashboardIcon, AcademicCapIcon, UsersIcon, UserCheckIcon, SettingsIcon, XIcon, ProjectsIcon, ChevronDownIcon, ReceiptPercentIcon, ChartBarIcon, CalendarIcon, LifebuoyIcon, LogoutIcon, GlobeAltIcon, BellIcon } from '../../../shared/components/Icons';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { isProjectAreaView, PROJECT_SIDEBAR_SECTIONS } from '../constants/projectSections';
 import { useAdminProjectTabCounts } from '../../../core/hooks/useAdminQueries';
@@ -118,6 +118,7 @@ const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({ isOpen, onClose, curr
                          <NavLink icon={<UserCheckIcon className="w-6 h-6" />} label={t('requests')} isActive={isRequestsActive} onClick={() => navigateTo('educationalRequests')} />
                          <NavLink icon={<AcademicCapIcon className="w-6 h-6" />} label={t('educators')} isActive={isEducatorsActive} onClick={() => navigateTo('educators')} />
                          <NavLink icon={<UsersIcon className="w-6 h-6" />} label={t('users')} isActive={isUsersActive} onClick={() => navigateTo('users')} />
+                         <NavLink icon={<BellIcon className="w-6 h-6" />} label={t('notifications')} isActive={currentView === 'notifications'} onClick={() => navigateTo('notifications')} />
                          <MenuHeader>{t('tools')}</MenuHeader>
                          <NavLink icon={<ReceiptPercentIcon className="w-6 h-6" />} label={t('finance')} isActive={isFinanceActive} onClick={() => navigateTo('finance')} />
                          <NavLink icon={<ChartBarIcon className="w-6 h-6" />} label={t('reports')} isActive={currentView === 'reports'} onClick={() => navigateTo('reports')} />
