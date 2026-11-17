@@ -844,6 +844,11 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
   const [phone, setPhone] = useState(educator.phone || '');
   const [isEmailPublic, setIsEmailPublic] = useState(Boolean(educator.profile.isEmailPublic));
   const [isPhonePublic, setIsPhonePublic] = useState(Boolean(educator.profile.isPhonePublic));
+  const [isNationalityPublic, setIsNationalityPublic] = useState(Boolean(educator.profile.isNationalityPublic));
+  const [isGenderPublic, setIsGenderPublic] = useState(Boolean(educator.profile.isGenderPublic));
+  const [isCountryPublic, setIsCountryPublic] = useState(Boolean(educator.profile.isCountryPublic));
+  const [isCityPublic, setIsCityPublic] = useState(Boolean(educator.profile.isCityPublic));
+  const [isExperienceLevelPublic, setIsExperienceLevelPublic] = useState(Boolean(educator.profile.isExperienceLevelPublic));
   const [gender, setGender] = useState<'male' | 'female'>((educator.profile.gender as any) || 'male');
   const [experienceYears, setExperienceYears] = useState<number>(Number(educator.profile.experienceYears || 0));
   const [idType, setIdType] = useState<'national_id' | 'passport'>(((educator.profile as any).idType as any) || 'national_id');
@@ -960,6 +965,11 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
         is_email_public: isEmailPublic,
         is_phone_public: isPhonePublic,
         is_identity_id_public: isIdentityIdPublic,
+        is_nationality_public: isNationalityPublic,
+        is_gender_public: isGenderPublic,
+        is_country_public: isCountryPublic,
+        is_city_public: isCityPublic,
+        is_experience_level_public: isExperienceLevelPublic,
         experience_years: Math.max(0, Number(experienceYears) || 0),
       };
       if (frontRemoved) {
@@ -989,7 +999,7 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
 
   useEffect(() => {
     if (registerSave) registerSave(handleSave);
-  }, [registerSave, name, email, phone, isEmailPublic, isPhonePublic, gender, experienceYears, idType, idNumber, isIdentityIdPublic, frontFile, backFile, nationalityId, countryId, cityId]);
+  }, [registerSave, name, email, phone, isEmailPublic, isPhonePublic, isNationalityPublic, isGenderPublic, isCountryPublic, isCityPublic, isExperienceLevelPublic, gender, experienceYears, idType, idNumber, isIdentityIdPublic, frontFile, backFile, nationalityId, countryId, cityId]);
 
   return (
     <InlineFormWrapper onSave={handleSave} onCancel={onCancel} loading={saving}>
@@ -1016,6 +1026,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                 options={(nationalities.data || []).map(n => ({ value: n.id, label: n.title }))}
                 placeholder={t('common.selectPlaceholder')}
               />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isNationalityPublic} onChange={e => setIsNationalityPublic(e.target.checked)} />
+                {t('profileSection.publicData.showNationality')}
+              </label>
             </div>
             <div className="space-y-1">
               <label className={labelClass}>{t('profile.gender')} <span className="text-red-500">*</span></label>
@@ -1029,6 +1043,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                   <span>{t('gender.FEMALE')}</span>
                 </label>
               </div>
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isGenderPublic} onChange={e => setIsGenderPublic(e.target.checked)} />
+                {t('profileSection.publicData.showGender')}
+              </label>
             </div>
             <div className="space-y-1">
               <label className={labelClass}>{t('profile.country')} <span className="text-red-500">*</span></label>
@@ -1038,6 +1056,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                 options={(countries.data || []).map(c => ({ value: c.id, label: c.title }))}
                 placeholder={t('common.selectPlaceholder')}
               />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isCountryPublic} onChange={e => setIsCountryPublic(e.target.checked)} />
+                {t('profileSection.publicData.showCountry')}
+              </label>
             </div>
             <div className="space-y-1">
               <label className={labelClass}>{t('profile.city')} <span className="text-red-500">*</span></label>
@@ -1047,6 +1069,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                 options={(cities.data || []).map(c => ({ value: c.id, label: c.title }))}
                 placeholder={t('common.selectPlaceholder')}
               />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isCityPublic} onChange={e => setIsCityPublic(e.target.checked)} />
+                {t('profileSection.publicData.showCity')}
+              </label>
               {!cityId && countryId && (cities.data?.length === 0) && (
                 <p className={errorTextClass}>{t('noResults')}</p>
               )}
@@ -1061,6 +1087,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
                 placeholder="5"
                 className={inputClass}
               />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isExperienceLevelPublic} onChange={e => setIsExperienceLevelPublic(e.target.checked)} />
+                {t('profileSection.publicData.showExperienceLevel')}
+              </label>
             </div>
           </div>
         </div>

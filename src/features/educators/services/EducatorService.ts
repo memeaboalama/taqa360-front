@@ -108,10 +108,15 @@ export interface PublicEducatorProfile {
   phone: string | null;
   identityType: string | null;
   identityNumber: string | null;
+  nationality: string | null;
+  gender: string | null;
+  country: string | null;
+  city: string | null;
   headline: string | null;
   bioTitle: string | null;
   bio: string | null;
   educationLevel: string | null;
+  experienceLevel: string | null;
   experienceYears: number | null;
   academicMajors: { majorName: string | null; degree: string | null; institution: string | null; graduationYear: number | string | null }[];
   workExperience: { title: string; organization: string | null; description: string | null; startDate: string | null; endDate: string | null }[];
@@ -196,6 +201,11 @@ export class EducatorService {
     is_email_public?: boolean;
     is_phone_public?: boolean;
     is_identity_id_public?: boolean;
+    is_nationality_public?: boolean;
+    is_gender_public?: boolean;
+    is_country_public?: boolean;
+    is_city_public?: boolean;
+    is_experience_level_public?: boolean;
     experience_years?: number;
     identityImageFront?: File | null;
     identityImageBack?: File | null;
@@ -216,6 +226,11 @@ export class EducatorService {
       is_email_public: Boolean(data.is_email_public),
       is_phone_public: Boolean(data.is_phone_public),
       is_identity_id_public: Boolean(data.is_identity_id_public),
+      is_nationality_public: Boolean(data.is_nationality_public),
+      is_gender_public: Boolean(data.is_gender_public),
+      is_country_public: Boolean(data.is_country_public),
+      is_city_public: Boolean(data.is_city_public),
+      is_experience_level_public: Boolean(data.is_experience_level_public),
     };
     if (typeof data.experience_years === 'number') jsonPayload.experience_years = Number(data.experience_years);
     if (typeof data.delete_identity_front !== 'undefined') jsonPayload.delete_identity_front = (data.delete_identity_front === true || data.delete_identity_front === '1') ? '1' : '0';
@@ -299,6 +314,11 @@ export class EducatorService {
       isEmailPublic: Boolean(basic?.isEmailPublic ?? basic?.is_email_public ?? false),
       isPhonePublic: Boolean(basic?.isPhonePublic ?? basic?.is_phone_public ?? false),
       isIdentityIdPublic: Boolean(basic?.isIdentityIdPublic ?? basic?.is_identity_id_public ?? false),
+      isNationalityPublic: Boolean(basic?.isNationalityPublic ?? basic?.is_nationality_public ?? false),
+      isGenderPublic: Boolean(basic?.isGenderPublic ?? basic?.is_gender_public ?? false),
+      isCountryPublic: Boolean(basic?.isCountryPublic ?? basic?.is_country_public ?? false),
+      isCityPublic: Boolean(basic?.isCityPublic ?? basic?.is_city_public ?? false),
+      isExperienceLevelPublic: Boolean(basic?.isExperienceLevelPublic ?? basic?.is_experience_level_public ?? false),
       idDocumentUrl: EducatorService.resolveUrl(basic?.idDocumentUrl ?? basic?.idDocumentFrontUrl ?? basic?.identityImageFront ?? basic?.id_document_url ?? null),
       idDocumentBackUrl: EducatorService.resolveUrl(basic?.idDocumentBackUrl ?? basic?.idDocumentBack ?? basic?.identityImageBack ?? basic?.id_document_back_url ?? null),
       rejectionReason: basic?.rejectionReason ?? null,

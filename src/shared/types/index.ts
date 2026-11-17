@@ -210,6 +210,11 @@ export interface EducatorProfile {
     isEmailPublic?: boolean;
     isPhonePublic?: boolean;
     isIdentityIdPublic?: boolean;
+    isNationalityPublic?: boolean;
+    isGenderPublic?: boolean;
+    isCountryPublic?: boolean;
+    isCityPublic?: boolean;
+    isExperienceLevelPublic?: boolean;
     idDocumentUrl?: string | null;
     idDocumentBackUrl?: string | null;
     rejectionReason?: string | null;
