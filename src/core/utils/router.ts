@@ -102,8 +102,10 @@ export function loadAdminRoute(): { view: string; ctx: any } {
   let ctx: any = undefined;
   const { role, view: hv, ctx: hctx } = parseHash();
   if (role === 'admin') {
-    view = hv || (sessionStorage.getItem(STORAGE_KEYS.adminView) || 'dashboard');
+    view = hv || 'dashboard';
     ctx = hctx;
+  } else if (window.location.pathname === '/') {
+    return { view: 'dashboard', ctx: null };
   } else {
     const stored = sessionStorage.getItem(STORAGE_KEYS.adminView);
     if (stored) view = stored;

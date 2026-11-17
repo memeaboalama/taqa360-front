@@ -3,17 +3,16 @@
  * Following enterprise patterns with proper error handling and loading states
  */
 
-import React, { useState } from 'react';
-import { useAdminDashboardData } from '../../../core/hooks/useAdminQueries';
-import { 
-  StatsCardSkeleton, 
-  TableSkeleton, 
-  ChartSkeleton,
-  ErrorState,
-  EmptyState 
-} from '../../../core/components/LoadingStates';
-import { useErrorHandler } from '../../../core/hooks/useErrorHandler';
-import { AdminViewType } from '../../../shared/types';
+import React from 'react';
+import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js';
+import type { ChartData, ChartOptions } from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { useAdminEducators, useAdminEducationalRequests, useAdminProjects, useAdminUsers, usePendingApprovals } from '../../../core/hooks/useAdminQueries';
+import { StatsCardSkeleton, ErrorState, EmptyState } from '../../../core/components/LoadingStates';
+import { AdminViewType, EducationalRequest, Project } from '../../../shared/types';
+import { useLanguage } from '../../../app/providers/LanguageProvider';
+
+ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 // Icon mapping for activities - now dynamic based on API data
 const ActivityIcon: React.FC<{ type: string; className?: string }> = ({ type, className = "h-5 w-5" }) => {
@@ -53,63 +52,191 @@ const ActivityIcon: React.FC<{ type: string; className?: string }> = ({ type, cl
   return iconMap[type] || iconMap.default;
 };
 
+const EyeIcon: React.FC = () => (
+  <svg aria-hidden="true" focusable="false" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.25 12s3.5-6 9.75-6 9.75 6 9.75 6-3.5 6-9.75 6-9.75-6-9.75-6Z" />
+    <circle cx="12" cy="12" r="2.5" strokeWidth={2} />
+  </svg>
+);
+
+interface DashboardApproval {
+  id?: string | number;
+  type?: string;
+  title?: string;
+  name?: string;
+  priority?: string;
+  submitter?: { name?: string };
+  educator?: { name?: string };
+  educatorName?: string;
+  educator_name?: string;
+  educatorId?: string | number;
+  educator_id?: string | number;
+}
+
+interface DashboardRequest extends Partial<EducationalRequest> {
+  requester_name?: string;
+  requester?: { name?: string };
+  created_at?: string;
+}
+
+function findList<T>(value: unknown, collectionKeys: string[], depth = 0): T[] | undefined {
+  if (Array.isArray(value)) return value as T[];
+  if (!value || typeof value !== 'object' || depth >= 4) return undefined;
+
+  const record = value as Record<string, unknown>;
+  for (const key of [...collectionKeys, 'data']) {
+    const nested = record[key];
+    if (Array.isArray(nested)) return nested as T[];
+    const result = findList<T>(nested, collectionKeys, depth + 1);
+    if (result) return result;
+  }
+  return undefined;
+}
+
+function extractList<T>(value: unknown, collectionKeys: string[]): T[] {
+  return findList<T>(value, collectionKeys) ?? [];
+}
+
 interface DashboardViewProps {
   navigateTo: (view: AdminViewType, context?: any) => void;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-  const { handleError, clearError } = useErrorHandler();
-
-  // Use the new API-based hooks
-  const {
-    dashboard,
-    activityFeed,
-    pendingApprovals,
-    systemHealth,
-    isLoading,
-    isError,
-    refetchAll
-  } = useAdminDashboardData();
-
-  // Handle retry for errors
-  const handleRetry = () => {
-    clearError();
-    refetchAll();
+  const { t, language } = useLanguage();
+  const projectsQuery = useAdminProjects({ paginated: true, page: 1, per_page: 5 });
+  const educatorsQuery = useAdminEducators({ page: 1, per_page: 1 });
+  const usersQuery = useAdminUsers({ page: 1, per_page: 1 });
+  const requestsQuery = useAdminEducationalRequests({ page: 1, per_page: 10 });
+  const pendingApprovals = usePendingApprovals({ page: 1, per_page: 100 });
+  const isLoading = projectsQuery.isLoading || educatorsQuery.isLoading || usersQuery.isLoading || requestsQuery.isLoading || pendingApprovals.isLoading;
+  const isError = projectsQuery.isError || educatorsQuery.isError || usersQuery.isError || requestsQuery.isError || pendingApprovals.isError;
+  const recentProjects = extractList<Project>(projectsQuery.data, ['projects']);
+  const latestRequests = extractList<DashboardRequest>(requestsQuery.data, ['educationalRequests', 'educational_requests', 'requests']);
+  const educators = extractList(educatorsQuery.data, ['educators']);
+  const users = extractList(usersQuery.data, ['users']);
+  const approvals = extractList<DashboardApproval>(pendingApprovals.data, ['educators', 'applications']);
+  const approvalPriorityCounts = approvals.reduce(
+    (counts, approval) => {
+      const priority = approval.priority?.toLowerCase();
+      if (priority === 'urgent') counts.urgent += 1;
+      else if (priority === 'high') counts.high += 1;
+      else if (priority === 'normal' || priority === 'medium') counts.normal += 1;
+      else counts.unspecified += 1;
+      return counts;
+    },
+    { urgent: 0, high: 0, normal: 0, unspecified: 0 },
+  );
+  const approvalTypeCounts = approvals.reduce(
+    (counts, approval) => {
+      if (approval.type?.toLowerCase().includes('project')) counts.projects += 1;
+      else counts.educatorApplications += 1;
+      return counts;
+    },
+    { projects: 0, educatorApplications: 0 },
+  );
+  const chartLocale = language === 'ar' ? 'ar-u-nu-latn' : 'en-US';
+  const priorityChartData: ChartData<'doughnut'> = {
+    labels: [
+      t('adminDashboard.approvalUrgent'),
+      t('adminDashboard.approvalHigh'),
+      t('adminDashboard.approvalNormal'),
+      t('adminDashboard.approvalUnspecified'),
+    ],
+    datasets: [{
+      data: [
+        approvalPriorityCounts.urgent,
+        approvalPriorityCounts.high,
+        approvalPriorityCounts.normal,
+        approvalPriorityCounts.unspecified,
+      ],
+      backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#94a3b8'],
+      borderWidth: 0,
+    }],
+  };
+  const typeChartData: ChartData<'bar'> = {
+    labels: [
+      t('adminDashboard.educatorApplications'),
+      t('adminDashboard.projectApprovals'),
+    ],
+    datasets: [{
+      label: t('adminDashboard.pendingApprovals'),
+      data: [approvalTypeCounts.educatorApplications, approvalTypeCounts.projects],
+      backgroundColor: ['#3b82f6', '#14b8a6'],
+      borderRadius: 6,
+    }],
+  };
+  const priorityChartOptions: ChartOptions<'doughnut'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    locale: chartLocale,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#64748b' } },
+    },
+  };
+  const typeChartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    locale: chartLocale,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b' } },
+      x: { ticks: { color: '#64748b' } },
+    },
   };
 
-  // If there's a critical error, show error state
   if (isError && !isLoading) {
     return (
       <div className="p-6">
         <ErrorState
           title="فشل في تحميل لوحة التحكم"
           description="حدث خطأ أثناء تحميل بيانات لوحة التحكم. يرجى المحاولة مرة أخرى."
-          onRetry={handleRetry}
+          onRetry={() => {
+            projectsQuery.refetch();
+            educatorsQuery.refetch();
+            usersQuery.refetch();
+            requestsQuery.refetch();
+            pendingApprovals.refetch();
+          }}
           retryLabel="إعادة تحميل البيانات"
         />
       </div>
     );
   }
 
-  // Extract stats from dashboard data with fallbacks
-  const stats = dashboard.data?.stats || {
-    total_projects: { current: 0, change_percentage: 0, trend: 'stable' as const },
-    active_educators: { current: 0, change_percentage: 0, trend: 'stable' as const },
-    pending_requests: { current: 0, change_percentage: 0, trend: 'stable' as const },
-    total_revenue: { current: 0, change_percentage: 0, trend: 'stable' as const }
+  const stats = {
+    total_projects: projectsQuery.totalItems || recentProjects.length,
+    total_educators: educatorsQuery.totalItems || educators.length,
+    pending_requests: pendingApprovals.totalItems || approvals.length,
+    total_users: usersQuery.totalItems || users.length
   };
-
-  const activities = activityFeed.data || [];
-  const approvals = pendingApprovals.data || [];
-  const health = systemHealth.data || {
-    status: 'healthy' as const,
-    uptime: 0,
-    cpu_usage: 0,
-    memory_usage: 0,
-    active_users: 0,
-    response_time: 0,
-    error_rate: 0
+  const translateStatus = (status?: string | null) =>
+    status ? t(`status.${status.toLowerCase()}`) : '—';
+  const statusBadgeClass = (status?: string | null) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'accepted':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
+      case 'pending':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300';
+      case 'canceled':
+      case 'rejected':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
+      default:
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+    }
+  };
+  const formatDate = (date?: string | null) => {
+    if (!date) return '—';
+    const parsedDate = new Date(date);
+    return Number.isNaN(parsedDate.getTime())
+      ? '—'
+      : new Intl.DateTimeFormat(
+          language === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-US',
+        ).format(parsedDate);
   };
 
   return (
@@ -125,39 +252,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
           </p>
         </div>
         
-        {/* Period Selector */}
-        <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
-          {(['7d', '30d', '90d'] as const).map((period) => (
-            <button
-              key={period}
-              onClick={() => setSelectedPeriod(period)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                selectedPeriod === period
-                  ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {period === '7d' ? '7 أيام' : period === '30d' ? '30 يوم' : '90 يوم'}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashboard.isLoading ? (
-          // Loading skeletons
+        {isLoading ? (
           Array.from({ length: 4 }).map((_, index) => (
             <StatsCardSkeleton key={index} />
           ))
         ) : (
-          // Real stats data
           <>
             <StatsCard
               title="إجمالي المشاريع"
-              value={stats.total_projects.current}
-              change={stats.total_projects.change_percentage}
-              trend={stats.total_projects.trend}
+              value={stats.total_projects}
               icon={
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -168,10 +275,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
             />
 
             <StatsCard
-              title="المتخصصون النشطون"
-              value={stats.active_educators.current}
-              change={stats.active_educators.change_percentage}
-              trend={stats.active_educators.trend}
+              title="المتخصصون المسجلون"
+              value={stats.total_educators}
               icon={
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -183,9 +288,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
 
             <StatsCard
               title="الطلبات المعلقة"
-              value={stats.pending_requests.current}
-              change={stats.pending_requests.change_percentage}
-              trend={stats.pending_requests.trend}
+              value={stats.pending_requests}
               icon={
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -196,69 +299,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
             />
 
             <StatsCard
-              title="إجمالي الإيرادات"
-              value={`${stats.total_revenue.current.toLocaleString()} ر.س`}
-              change={stats.total_revenue.change_percentage}
-              trend={stats.total_revenue.trend}
+              title="إجمالي المستخدمين"
+              value={stats.total_users}
               icon={
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               }
               color="bg-purple-500"
-              onClick={() => navigateTo('finance')}
+              onClick={() => navigateTo('users')}
             />
           </>
         )}
       </div>
 
-      {/* System Health Status */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            حالة النظام
-          </h2>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-            health.status === 'healthy' 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-              : health.status === 'warning'
-              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-          }`}>
-            {health.status === 'healthy' ? 'نظام سليم' : 
-             health.status === 'warning' ? 'تحذير' : 'خطأ'}
-          </div>
-        </div>
-
-        {systemHealth.isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="animate-pulse">
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20 mb-2"></div>
-                <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <HealthMetric label="وقت التشغيل" value={`${Math.floor(health.uptime / 3600)}ساعة`} />
-            <HealthMetric label="استخدام المعالج" value={`${health.cpu_usage}%`} />
-            <HealthMetric label="استخدام الذاكرة" value={`${health.memory_usage}%`} />
-            <HealthMetric label="المستخدمون النشطون" value={health.active_users.toString()} />
-          </div>
-        )}
-      </div>
-
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activities */}
+        {/* Recent Projects */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              الأنشطة الأخيرة
+              أحدث المشاريع
             </h2>
             <button
-              onClick={() => navigateTo('reports')}
+              onClick={() => navigateTo('projects')}
               className="text-sm font-medium hover:underline"
               style={{ color: 'var(--primary-color)' }}
             >
@@ -266,11 +330,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
             </button>
           </div>
 
-          {activityFeed.isLoading ? (
+          {projectsQuery.isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="animate-pulse flex items-center space-x-3 space-x-reverse">
-                  <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                <div key={index} className="animate-pulse flex items-center gap-3">
+                  <div className="h-9 w-9 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
                   <div className="flex-1 space-y-2">
                     <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
                     <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
@@ -278,32 +342,32 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
                 </div>
               ))}
             </div>
-          ) : activities.length === 0 ? (
+          ) : recentProjects.length === 0 ? (
             <EmptyState
               icon={
                 <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               }
-              title="لا توجد أنشطة حديثة"
-              description="لم يتم تسجيل أي أنشطة في الفترة الأخيرة"
+              title="لا توجد مشاريع"
+              description="ستظهر المشاريع هنا بعد إضافتها"
             />
           ) : (
             <div className="space-y-4">
-              {activities.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3 space-x-reverse">
-                  <div className="h-8 w-8 bg-yellow-50 dark:bg-yellow-900 rounded-full flex items-center justify-center">
-                    <ActivityIcon type={activity.type} className="h-4 w-4" style={{ color: 'var(--primary-color)' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-900 dark:text-white">
-                      {activity.description}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {new Date(activity.created_at).toLocaleDateString('ar-SA')}
-                    </p>
-                  </div>
-                </div>
+              {recentProjects.map((project) => (
+                <button
+                  key={project.id}
+                  onClick={() => navigateTo('projectDetail', project.id)}
+                  className="w-full flex items-center justify-between gap-3 text-right p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                  title={t('adminDashboard.viewProjectDetails')}
+                >
+                  <span className="font-medium text-slate-900 dark:text-white truncate">{project.title || 'مشروع بدون عنوان'}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(project.status)}`}>
+                      {translateStatus(project.status)}
+                    </span>
+                  </span>
+                </button>
               ))}
             </div>
           )}
@@ -325,12 +389,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
           </div>
 
           {pendingApprovals.isLoading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="animate-pulse">
-                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
-                </div>
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div key={index} className="h-64 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-700" />
               ))}
             </div>
           ) : approvals.length === 0 ? (
@@ -344,41 +405,118 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
               description="جميع الطلبات تمت مراجعتها"
             />
           ) : (
-            <div className="space-y-4">
-              {approvals.slice(0, 5).map((approval) => (
-                <div
-                  key={approval.id}
-                  className="p-3 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-                  onClick={() => {
-                    if (approval.type === 'educator_application') {
-                      navigateTo('educatorApplicationDetail', approval.id);
-                    } else if (approval.type === 'project_approval') {
-                      navigateTo('projectDetail', approval.id);
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-slate-900 dark:text-white">
-                      {approval.title}
-                    </h3>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      approval.priority === 'urgent' 
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        : approval.priority === 'high'
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                        : 'bg-yellow-50 text-yellow-800'
-                    }`}>
-                      {approval.priority === 'urgent' ? 'عاجل' : 
-                       approval.priority === 'high' ? 'مهم' : 'عادي'}
-                    </span>
+            <div className="space-y-5">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('adminDashboard.chartScope', {
+                  shown: approvals.length,
+                  total: pendingApprovals.totalItems || approvals.length,
+                })}
+              </p>
+              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+                <section className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {t('adminDashboard.approvalsByPriority')}
+                  </h3>
+                  <div className="h-56">
+                    <Doughnut data={priorityChartData} options={priorityChartOptions} />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    من: {approval.submitter.name}
-                  </p>
-                </div>
-              ))}
+                </section>
+                <section className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {t('adminDashboard.approvalsByType')}
+                  </h3>
+                  <div className="h-56">
+                    <Bar data={typeChartData} options={typeChartOptions} />
+                  </div>
+                </section>
+              </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Latest Requests */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between p-6 pb-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+            {t('adminDashboard.latestRequests')}
+          </h2>
+          <button
+            onClick={() => navigateTo('educationalRequests')}
+            className="text-sm font-medium hover:underline"
+            style={{ color: 'var(--primary-color)' }}
+          >
+            {t('adminDashboard.viewAll')}
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">
+              <tr>
+                <th className="px-6 py-3 text-right font-medium">{t('adminDashboard.request')}</th>
+                <th className="px-6 py-3 text-right font-medium">{t('adminDashboard.requester')}</th>
+                <th className="px-6 py-3 text-right font-medium">{t('adminDashboard.date')}</th>
+                <th className="px-6 py-3 text-right font-medium">{t('adminDashboard.status')}</th>
+                <th className="px-6 py-3 text-center font-medium">{t('adminDashboard.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              {requestsQuery.isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    {Array.from({ length: 5 }).map((__, cellIndex) => (
+                      <td key={cellIndex} className="px-6 py-4">
+                        <div className="h-4 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : latestRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
+                    {t('adminDashboard.noRequests')}
+                  </td>
+                </tr>
+              ) : (
+                latestRequests.slice(0, 10).map((request, index) => (
+                  <tr key={request.id ?? index} className="text-slate-700 dark:text-slate-200">
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => navigateTo('requestDetail', request.id)}
+                        className="font-medium hover:underline"
+                        style={{ color: 'var(--primary-color)' }}
+                      >
+                        {request.title || request.code || '—'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
+                      {request.requesterName || request.requester_name || request.requester?.name || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {formatDate(request.createdAt || request.created_at)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(request.status)}`}>
+                        {translateStatus(request.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => navigateTo('requestDetail', request.id)}
+                        className="inline-flex items-center justify-center rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                        aria-label={t('adminDashboard.viewRequestDetails')}
+                        title={t('adminDashboard.viewRequestDetails')}
+                      >
+                        <EyeIcon />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -395,6 +533,8 @@ const StatsCard: React.FC<{
   color: string;
   onClick?: () => void;
 }> = ({ title, value, change, trend, icon, color, onClick }) => {
+  const { language } = useLanguage();
+
   return (
     <div 
       className={`bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 ${
@@ -408,7 +548,9 @@ const StatsCard: React.FC<{
             {title}
           </p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-            {typeof value === 'number' ? value.toLocaleString() : value}
+            {typeof value === 'number'
+              ? value.toLocaleString(language === 'ar' ? 'ar-u-nu-latn' : 'en-US')
+              : value}
           </p>
         </div>
         <div className={`p-3 rounded-lg ${color}`}>

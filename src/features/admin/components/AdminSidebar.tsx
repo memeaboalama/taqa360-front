@@ -114,13 +114,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, navigateTo, is
       <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
         <p className={`px-3 pt-2 pb-2 text-xs font-semibold text-gray-400 uppercase ${isCollapsed ? 'text-center' : ''}`}>{isCollapsed ? '•••' : t('mainMenu')}</p>
         <ul className="space-y-2 font-medium">
-          {/* <NavItem
+          <NavItem
             icon={<DashboardIcon className="w-6 h-6" />}
             label={t('dashboard')}
             isActive={currentView === 'dashboard'}
             onClick={() => navigateTo('dashboard')}
             isCollapsed={isCollapsed}
-          /> */}
+          />
           <AccordionMenu
             icon={<ProjectsIcon className="w-6 h-6" />}
             label={t('projectsView.title')}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import { AdminAuthService } from '../services/AdminAuthService';
 import { LoginCredentials, RegisterData, AuthUser } from '../../../shared/types';
+import { saveAdminRoute } from '../../../core/utils/router';
 
 export const useAdminAuth = () => {
   const {
@@ -26,6 +27,7 @@ export const useAdminAuth = () => {
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginCredentials) => AdminAuthService.login(credentials),
     onSuccess: (data) => {
+      saveAdminRoute('dashboard', null);
       storeLogin(data.user, data.tokens);
       queryClient.invalidateQueries({ queryKey: ['admin-user'] });
     },

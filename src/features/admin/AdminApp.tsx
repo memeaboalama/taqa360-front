@@ -74,8 +74,8 @@ const AdminApp: React.FC<AdminAppProps> = ({ onLogout }) => {
     const renderView = () => {
         const adminProps = { navigateTo };
         switch(currentView) {
-            // case 'dashboard': return <DashboardView navigateTo={navigateTo} />;
             case 'dashboard':
+                return <DashboardView navigateTo={navigateTo} />;
             case 'projects':
                 return <ProjectsView {...adminProps} activeTab={getProjectTabForView(currentView)} />;
             case 'projectsWithOffers':

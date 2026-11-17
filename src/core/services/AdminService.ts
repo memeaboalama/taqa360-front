@@ -1,6 +1,7 @@
 import { AdminService as FeatureAdminService } from '../../features/admin/services/AdminService';
 import { ProjectService } from '../../features/projects/services/ProjectService';
 import { SystemService } from '../../shared/services/SystemService';
+import type { QueryParams } from '../api/types';
 
 // Minimal adapter exposing the surface used by src/core/hooks/useAdminQueries.ts
 export const adminService = {
@@ -8,7 +9,10 @@ export const adminService = {
   getDashboard: () => FeatureAdminService.getDashboardStats(),
   getDashboardStats: (period?: '7d' | '30d' | '90d') => FeatureAdminService.getDashboardStats(),
   getActivityFeed: (params?: any) => FeatureAdminService.getActivityFeed(params),
-  getPendingApprovals: (type?: string) => FeatureAdminService.getEducatorApplications({ status: 'pending' as any }),
+  getPendingApprovals: (params?: QueryParams) => FeatureAdminService.getEducatorApplications({
+    ...params,
+    status: 'pending' as any
+  }),
   getSystemHealth: () => SystemService.healthCheck(),
 
   // Educators

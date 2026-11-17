@@ -42,10 +42,10 @@ export function useAdminActivityFeed(params?: QueryParams) {
   );
 }
 
-export function usePendingApprovals(type?: string) {
+export function usePendingApprovals(params?: QueryParams) {
   return usePaginatedQuery(
-    QueryKeyFactory.list('pending-approvals', { type }),
-    () => adminService.getPendingApprovals(type),
+    QueryKeyFactory.list('pending-approvals', params),
+    () => adminService.getPendingApprovals(params),
     {
       staleTime: 60000 // 1 minute
     }
