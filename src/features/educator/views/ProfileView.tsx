@@ -50,6 +50,36 @@ const BrandChip: React.FC<{ label: string; tone?: 'primary' | 'success' | 'warni
 
 type AttachmentKind = 'image' | 'pdf' | 'file';
 
+async function copyTextToClipboard(value: string): Promise<void> {
+  let clipboardError: unknown;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch (error) {
+      clipboardError = error;
+    }
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = value;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  textArea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } finally {
+    textArea.remove();
+  }
+
+  if (!copied) {
+    throw clipboardError instanceof Error ? clipboardError : new Error('Could not copy the profile link.');
+  }
+}
+
 const getAttachmentKind = (url: string, fileName?: string | null, mimeType?: string | null): AttachmentKind => {
   const mime = String(mimeType || '').toLowerCase();
   if (mime.startsWith('image/')) return 'image';
@@ -1424,19 +1454,41 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
     }
   }), [educator, computedCompletion]);
 
-  const handleShareProfile = async () => {
-    const shareUrl = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: educator.name, url: shareUrl });
-        addToast && addToast(t('profileSection.toast.linkCopied'), 'success');
-        return;
-      } catch {}
-    }
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(shareUrl);
+  const canSharePublicProfile = Boolean(educator.id) && String(educator.status).toLowerCase() === 'active';
+
+  const getProfileShareUrl = () => {
+    if (!canSharePublicProfile) return null;
+    return new URL(`/public/educators/${encodeURIComponent(educator.id)}`, window.location.origin).toString();
+  };
+
+  const copyProfileShareUrl = async (shareUrl: string) => {
+    try {
+      await copyTextToClipboard(shareUrl);
       addToast && addToast(t('profileSection.toast.linkCopied'), 'success');
+    } catch {
+      addToast && addToast(t('profileSection.toast.shareFailed'), 'error');
     }
+  };
+
+  const handleShareProfile = async () => {
+    const shareUrl = getProfileShareUrl();
+    if (!shareUrl) return;
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: educator.name,
+          text: t('profileSection.shareMessage', { name: educator.name }),
+          url: shareUrl,
+        });
+        addToast && addToast(t('profileSection.toast.profileShared'), 'success');
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+      }
+    }
+
+    await copyProfileShareUrl(shareUrl);
   };
 
   const isNewProfile = !educator.bio && !(educator as any).bioTitle && educator.academicMajors.length === 0 && educator.workExperience.length === 0 && educator.certifications.length === 0;
@@ -1466,9 +1518,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ educator, onUpdateProfile, pr
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleShareProfile} className="px-3 py-2 text-xs md:text-sm font-bold bg-brand-primary/20 text-brand-dark rounded-lg hover:shadow-glow-primary flex items-center gap-1">
-              <ShareIcon className="w-4 h-4"/> {t('profileSection.button.share')}
-            </button>
+            {canSharePublicProfile && (
+              <button type="button" onClick={handleShareProfile} className="px-3 py-2 text-xs md:text-sm font-bold bg-brand-primary/20 text-brand-dark rounded-lg hover:shadow-glow-primary flex items-center gap-1">
+                <ShareIcon className="w-4 h-4"/> {t('profileSection.button.share')}
+              </button>
+            )}
           </div>
         </div>
       </div>

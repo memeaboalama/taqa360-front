@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { EducatorViewType, Project, Educator, AdminMessage, AdminMessageType, EducatorStatus } from '../../../shared/types';
-import { ClockIcon, EnvelopeIcon, AlertCircleIcon, LightBulbIcon, BriefcaseIcon, CheckIcon, DollarSignIcon, ZapIcon, XCircleIcon, EyeIcon, SparklesIcon } from '../../../shared/components/Icons';
+import { EducatorViewType, Project, Educator, AdminMessage, EducatorStatus } from '../../../shared/types';
+import { ClockIcon, EnvelopeIcon, AlertCircleIcon, BriefcaseIcon, CheckIcon, DollarSignIcon, ZapIcon, XCircleIcon, EyeIcon, SparklesIcon } from '../../../shared/components/Icons';
 import { useAcceptAssignment, useRejectAssignment, useEducatorDashboard, useEducatorNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '../../../core/hooks/useEducatorQueries';
 import ConfirmationModal from '../../../shared/components/modals/ConfirmationModal';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
@@ -112,32 +112,25 @@ const TaskCard: React.FC<{
   );
 };
 
-const mapChannelToMessageType = (channel: any): AdminMessageType => {
-  const c = String(channel ?? '').toLowerCase();
-  if (c.includes('urgent') || c.includes('عاجل')) return 'urgent';
-  if (c.includes('warn') || c.includes('تحذير') || c.includes('تنبيه')) return 'warning';
-  return 'info';
+const eventNotificationTranslationKeys: Record<string, { title: string; message: string }> = {
+  overdue_tasks: {
+    title: 'dashboardView.eventNotifications.overdueTitle',
+    message: 'dashboardView.eventNotifications.overdueMessage',
+  },
+  pending_invitations: {
+    title: 'dashboardView.eventNotifications.pendingInvitationsTitle',
+    message: 'dashboardView.eventNotifications.pendingInvitationsMessage',
+  },
+  upcoming_deadlines: {
+    title: 'dashboardView.eventNotifications.upcomingDeadlinesTitle',
+    message: 'dashboardView.eventNotifications.upcomingDeadlinesMessage',
+  },
 };
 
-const AdminMessageItem: React.FC<{ message: AdminMessage }>=({ message })=>{
-  const typeInfo: Record<AdminMessageType, { icon: React.ReactNode; color: string }>= {
-    urgent: { icon: <AlertCircleIcon className="w-5 h-5 text-red-500" />, color: 'border-red-500 bg-red-50 dark:bg-red-900/20' },
-    warning: { icon: <AlertCircleIcon className="w-5 h-5 text-yellow-500" />, color: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' },
-    info: { icon: <LightBulbIcon className="w-5 h-5 text-brand-primary" />, color: 'border-brand-primary bg-yellow-50 dark:bg-yellow-900/20' },
-  };
-  const info = typeInfo[message.type] || typeInfo.info;
-  return (
-    <div className={`p-3 rounded-lg border-s-4 ${info.color}`}>
-      <div className="flex items-start gap-3">
-        <div className="mt-1">{info.icon}</div>
-        <div>
-          <p className="font-bold text-sm text-slate-800 dark:text-white">{message.title}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{message.content}</p>
-          <p className="text-[10px] text-slate-400 mt-1">{message.timestamp}</p>
-        </div>
-      </div>
-    </div>
-  );
+const eventNotificationCodesByAction: Record<string, string> = {
+  '/tasks?filter=overdue': 'overdue_tasks',
+  '/assignments?status=pending': 'pending_invitations',
+  '/tasks?filter=upcoming': 'upcoming_deadlines',
 };
 
 const DashboardView: React.FC<DashboardViewProps>=({ navigateTo, projects, educator, onAcceptInvitation, onDeclineInvitation, isApproved })=>{
@@ -165,17 +158,6 @@ const DashboardView: React.FC<DashboardViewProps>=({ navigateTo, projects, educa
     timestamp: n?.timestamp ?? n?.created_at ?? '',
   })).filter((n: any) => n.id);
   const unreadCount = storedNotificationsList.filter((n: any) => !n.isRead).length;
-  // "رسائل الإدارة" لها نفس المصدر الحقيقي في الباك-إند (notification_news عبر
-  // GET /v1/educator/notifications)، ولا يوجد endpoint مستقل لها. لذا نعرض هنا
-  // أحدث الإشعارات المخزنة بدل البيانات الوهمية الثابتة (adminMessages prop).
-  const adminMessagesReal: AdminMessage[] = useMemo(() => storedNotificationsList.slice(0, 5).map((n: any) => ({
-    id: n.id,
-    type: mapChannelToMessageType(n.channel),
-    title: n.title || t('dashboardView.messagesFromAdmin'),
-    content: n.message || '',
-    timestamp: n.timestamp || '',
-    isRead: n.isRead,
-  })), [storedNotificationsList, t]);
   const notifTotalPages = Number((storedNotifications as any)?.totalPages || 1);
   const notifCurrentPage = Number((storedNotifications as any)?.currentPage || notifPage);
   const notifHasNext = Boolean((storedNotifications as any)?.hasNextPage);
@@ -209,6 +191,7 @@ const DashboardView: React.FC<DashboardViewProps>=({ navigateTo, projects, educa
   const recentAssignments = Array.isArray(dashboard.data?.recent_assignments) ? dashboard.data?.recent_assignments : [];
   const activeTasks = Array.isArray(dashboard.data?.active_tasks_list) ? dashboard.data?.active_tasks_list : [];
   const overdueTasks = Array.isArray(dashboard.data?.overdue_tasks_list) ? dashboard.data?.overdue_tasks_list : [];
+  const eventNotifications = Array.isArray(dashboard.data?.notifications) ? dashboard.data.notifications : [];
   const lastBids = Array.isArray((dashboard.data as any)?.last_bids) ? (dashboard.data as any).last_bids : [];
   const pendingOpportunities = Array.isArray((dashboard.data as any)?.pending_opportunities) ? (dashboard.data as any).pending_opportunities.slice(0, 3) : [];
 
@@ -411,9 +394,67 @@ const DashboardView: React.FC<DashboardViewProps>=({ navigateTo, projects, educa
 
         <div className="lg:col-span-4 space-y-6">
           <div id="db-notifications">
+            <h2 className="text-lg sm:text-xl font-bold mb-3 text-slate-800 dark:text-white">{t('dashboardView.notifications')}</h2>
+            {dashboard.isLoading && eventNotifications.length === 0 ? (
+              <div className="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 animate-pulse">
+                {[0, 1].map((i) => (
+                  <div key={i} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="h-4 w-2/3 bg-slate-200 dark:bg-slate-600 rounded mb-2" />
+                    <div className="h-3 w-full bg-slate-200 dark:bg-slate-600 rounded" />
+                  </div>
+                ))}
+                <p className="text-xs text-slate-400 text-center">{t('dashboardView.loadingNotifications')}</p>
+              </div>
+            ) : dashboard.isError ? (
+              <div className="text-center py-8 bg-white dark:bg-slate-800/50 rounded-lg border border-dashed border-red-300 dark:border-red-700">
+                <p className="text-sm text-red-500 dark:text-red-400">{t('dashboardView.failedToLoadNotifications')}</p>
+                <button onClick={() => dashboard.refetch()} className="mt-3 text-xs font-semibold text-brand-primary hover:underline">
+                  {t('dashboardView.retry')}
+                </button>
+              </div>
+            ) : eventNotifications.length ? (
+              <div className="space-y-3">
+                {eventNotifications.map((notification, index) => {
+                  const code = notification.code ?? eventNotificationCodesByAction[notification.action ?? ''];
+                  const translationKeys = eventNotificationTranslationKeys[code ?? ''];
+                  const countFromMessage = notification.message.match(/\d+/)?.[0];
+                  const count = notification.count ?? (countFromMessage ? Number(countFromMessage) : undefined);
+                  const title = translationKeys ? t(translationKeys.title) : notification.title;
+                  const message = translationKeys && typeof count === 'number'
+                    ? t(translationKeys.message, { count })
+                    : notification.message;
+
+                  return (
+                    <div
+                      key={`${code ?? notification.type}-${notification.timestamp}-${index}`}
+                      className={`p-3 rounded-lg border bg-white dark:bg-slate-800 ${
+                        notification.type === 'error'
+                          ? 'border-red-300 dark:border-red-700'
+                          : notification.type === 'warning'
+                            ? 'border-yellow-300 dark:border-yellow-700'
+                            : notification.type === 'success'
+                              ? 'border-green-300 dark:border-green-700'
+                              : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">{title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 whitespace-pre-line">{message}</p>
+                      {notification.timestamp && <p className="text-[10px] text-slate-400 mt-1">{notification.timestamp}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-10 bg-white dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboardView.noNewNotifications')}</p>
+              </div>
+            )}
+          </div>
+
+          <div id="db-admin-messages">
             <div className="flex items-center justify-between mb-3 gap-2">
               <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                {t('dashboardView.notifications')}
+                {t('dashboardView.messagesFromAdmin')}
                 {unreadCount > 0 && (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-primary text-white">
                     {t('dashboardView.unreadNotifications', { count: unreadCount })}
@@ -501,37 +542,6 @@ const DashboardView: React.FC<DashboardViewProps>=({ navigateTo, projects, educa
                     </button>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="text-center py-10 bg-white dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
-                <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboardView.noNewNotifications')}</p>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold mb-3 text-slate-800 dark:text-white">{t('dashboardView.messagesFromAdmin')}</h2>
-            {storedNotifications.isLoading && adminMessagesReal.length === 0 ? (
-              <div className="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 animate-pulse">
-                {[0, 1].map((i) => (
-                  <div key={i} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="h-4 w-2/3 bg-slate-200 dark:bg-slate-600 rounded mb-2" />
-                    <div className="h-3 w-full bg-slate-200 dark:bg-slate-600 rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : storedNotifications.isError && adminMessagesReal.length === 0 ? (
-              <div className="text-center py-8 bg-white dark:bg-slate-800/50 rounded-lg border border-dashed border-red-300 dark:border-red-700">
-                <p className="text-sm text-red-500 dark:text-red-400">{t('dashboardView.failedToLoadNotifications')}</p>
-                <button onClick={() => storedNotifications.refetch()} className="mt-3 text-xs font-semibold text-brand-primary hover:underline">
-                  {t('dashboardView.retry')}
-                </button>
-              </div>
-            ) : adminMessagesReal.length ? (
-              <div className="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                {adminMessagesReal.map((msg) => (
-                  <AdminMessageItem key={msg.id} message={msg} />
-                ))}
               </div>
             ) : (
               <div className="text-center py-10 bg-white dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">

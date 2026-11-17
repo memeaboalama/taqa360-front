@@ -89,6 +89,8 @@ export interface EducatorDashboardData {
     deadline?: string;
   }[];
   notifications: {
+    code?: string;
+    count?: number;
     type: 'info' | 'warning' | 'success' | 'error' | string;
     title: string;
     message: string;
@@ -96,6 +98,24 @@ export interface EducatorDashboardData {
     icon?: string;
     timestamp: string;
   }[];
+}
+
+export interface PublicEducatorProfile {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  headline: string | null;
+  bioTitle: string | null;
+  bio: string | null;
+  educationLevel: string | null;
+  experienceYears: number | null;
+  academicMajors: { majorName: string | null; degree: string | null; institution: string | null; graduationYear: number | string | null }[];
+  workExperience: { title: string; organization: string | null; description: string | null; startDate: string | null; endDate: string | null }[];
+  certifications: { title: string; type: string; organization: string | null; description: string | null; issueDate: string | null }[];
+  skills: { name: string | null; level: string | number | null }[];
+  services: { name: string | null; description: string | null }[];
+  achievements: { title: string; description: string | null; organization: string | null; issueDate: string | null }[];
+  socialLinks: { platform: string; url: string }[];
 }
 
 export class EducatorService {
@@ -129,6 +149,17 @@ export class EducatorService {
       const educatorRaw = EducatorService.extractEducatorPayload(fallbackResponse?.data);
       return EducatorService.mapEducator(educatorRaw);
     }
+  }
+
+  static async getPublicProfile(uuid: string): Promise<PublicEducatorProfile> {
+    const response = await apiClient.get<{ profile: PublicEducatorProfile }>(
+      `/public/educators/${encodeURIComponent(uuid)}`
+    );
+    const profile = response.data?.profile;
+    if (!profile) {
+      throw new Error('Public educator profile was missing from the API response.');
+    }
+    return profile;
   }
 
   static async updateProfile(profileData: Partial<Educator>): Promise<Educator> {
