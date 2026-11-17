@@ -75,16 +75,11 @@ const PublicEducatorProfileView: React.FC<PublicEducatorProfileViewProps> = ({ e
               {profile.headline && <p className="mt-1 font-semibold text-slate-600 dark:text-slate-300">{profile.headline}</p>}
               {profile.bioTitle && <h2 className="mt-4 font-bold text-slate-800 dark:text-slate-100">{profile.bioTitle}</h2>}
               {profile.bio && <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">{profile.bio}</p>}
-              {typeof profile.experienceYears === 'number' && profile.experienceYears > 0 && (
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  {t('publicProfile.experienceYears', { count: profile.experienceYears })}
-                </p>
-              )}
             </div>
           </div>
         </div>
 
-        {(profile.email || profile.phone || profile.identityNumber) && (
+        {(profile.email || profile.phone || profile.identityNumber || profile.nationality || profile.gender || profile.country || profile.city) && (
           <PublicSection title={t('publicProfile.contactInfo')}>
             {profile.email && (
               <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -105,6 +100,19 @@ const PublicEducatorProfileView: React.FC<PublicEducatorProfileViewProps> = ({ e
                 {profile.identityNumber}
               </p>
             )}
+            {profile.nationality && <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-semibold">{t('profile.nationality')}: </span>{profile.nationality}</p>}
+            {profile.gender && <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-semibold">{t('profile.gender')}: </span>{t(`gender.${profile.gender.toUpperCase()}`)}</p>}
+            {profile.country && <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-semibold">{t('profile.country')}: </span>{profile.country}</p>}
+            {profile.city && <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-semibold">{t('profile.city')}: </span>{profile.city}</p>}
+          </PublicSection>
+        )}
+
+        {profile.experienceLevel && (
+          <PublicSection title={t('publicProfile.experienceLevel')}>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {t(`experienceLevel.${profile.experienceLevel.toUpperCase()}`)}
+              {typeof profile.experienceYears === 'number' ? ` · ${t('publicProfile.experienceYears', { count: profile.experienceYears })}` : ''}
+            </p>
           </PublicSection>
         )}
 
