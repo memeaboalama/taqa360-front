@@ -29,3 +29,44 @@
 * { -webkit-tap-highlight-color: transparent; }
 html, body { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem); }
+
+:is(.overflow-x-auto, .table-responsive, .merchant-table-scroll) {
+  scrollbar-color: #5b6573 #e4e7eb;
+  scrollbar-width: auto;
+}
+
+:is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar:horizontal {
+  height: 12px;
+}
+
+:is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-track:horizontal {
+  background: #e4e7eb;
+  border-radius: 6px;
+}
+
+:is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-thumb:horizontal {
+  background-color: #5b6573;
+  border: 2px solid #e4e7eb;
+  border-radius: 6px;
+}
+
+:is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-thumb:horizontal:hover {
+  background-color: #424b55;
+}
+
+.dark :is(.overflow-x-auto, .table-responsive, .merchant-table-scroll) {
+  scrollbar-color: #94a3b8 #334155;
+}
+
+.dark :is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-track:horizontal {
+  background: #334155;
+}
+
+.dark :is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-thumb:horizontal {
+  background-color: #94a3b8;
+  border-color: #334155;
+}
+
+.dark :is(.overflow-x-auto, .table-responsive, .merchant-table-scroll)::-webkit-scrollbar-thumb:horizontal:hover {
+  background-color: #cbd5e1;
+}
