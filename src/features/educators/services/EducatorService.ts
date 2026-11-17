@@ -104,6 +104,10 @@ export interface PublicEducatorProfile {
   id: string;
   name: string;
   avatarUrl: string;
+  email: string | null;
+  phone: string | null;
+  identityType: string | null;
+  identityNumber: string | null;
   headline: string | null;
   bioTitle: string | null;
   bio: string | null;
@@ -189,6 +193,9 @@ export class EducatorService {
     city_id: string;
     identity_type: 'national_id' | 'passport';
     identity_id: string;
+    is_email_public?: boolean;
+    is_phone_public?: boolean;
+    is_identity_id_public?: boolean;
     experience_years?: number;
     identityImageFront?: File | null;
     identityImageBack?: File | null;
@@ -206,6 +213,9 @@ export class EducatorService {
       city_id: data.city_id,
       identity_type: data.identity_type,
       identity_id: data.identity_id,
+      is_email_public: Boolean(data.is_email_public),
+      is_phone_public: Boolean(data.is_phone_public),
+      is_identity_id_public: Boolean(data.is_identity_id_public),
     };
     if (typeof data.experience_years === 'number') jsonPayload.experience_years = Number(data.experience_years);
     if (typeof data.delete_identity_front !== 'undefined') jsonPayload.delete_identity_front = (data.delete_identity_front === true || data.delete_identity_front === '1') ? '1' : '0';
@@ -286,6 +296,9 @@ export class EducatorService {
       experienceLevel: basic?.experienceLevel ?? null,
       idType: basic?.idType ?? basic?.identity_type ?? null,
       idNumber: basic?.idNumber ?? basic?.identity_id ?? '',
+      isEmailPublic: Boolean(basic?.isEmailPublic ?? basic?.is_email_public ?? false),
+      isPhonePublic: Boolean(basic?.isPhonePublic ?? basic?.is_phone_public ?? false),
+      isIdentityIdPublic: Boolean(basic?.isIdentityIdPublic ?? basic?.is_identity_id_public ?? false),
       idDocumentUrl: EducatorService.resolveUrl(basic?.idDocumentUrl ?? basic?.idDocumentFrontUrl ?? basic?.identityImageFront ?? basic?.id_document_url ?? null),
       idDocumentBackUrl: EducatorService.resolveUrl(basic?.idDocumentBackUrl ?? basic?.idDocumentBack ?? basic?.identityImageBack ?? basic?.id_document_back_url ?? null),
       rejectionReason: basic?.rejectionReason ?? null,

@@ -207,6 +207,9 @@ export interface EducatorProfile {
     experienceLevel?: ExperienceLevel | string | null;
     idType: IdType | 'national_id' | 'passport' | string | null;
     idNumber: string;
+    isEmailPublic?: boolean;
+    isPhonePublic?: boolean;
+    isIdentityIdPublic?: boolean;
     idDocumentUrl?: string | null;
     idDocumentBackUrl?: string | null;
     rejectionReason?: string | null;

@@ -842,10 +842,13 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
   const [name, setName] = useState(educator.name || '');
   const [email, setEmail] = useState(educator.email || '');
   const [phone, setPhone] = useState(educator.phone || '');
+  const [isEmailPublic, setIsEmailPublic] = useState(Boolean(educator.profile.isEmailPublic));
+  const [isPhonePublic, setIsPhonePublic] = useState(Boolean(educator.profile.isPhonePublic));
   const [gender, setGender] = useState<'male' | 'female'>((educator.profile.gender as any) || 'male');
   const [experienceYears, setExperienceYears] = useState<number>(Number(educator.profile.experienceYears || 0));
   const [idType, setIdType] = useState<'national_id' | 'passport'>(((educator.profile as any).idType as any) || 'national_id');
   const [idNumber, setIdNumber] = useState<string>(educator.profile.idNumber || '');
+  const [isIdentityIdPublic, setIsIdentityIdPublic] = useState(Boolean(educator.profile.isIdentityIdPublic));
   const [frontFile, setFrontFile] = useState<File | null>(null);
   const [backFile, setBackFile] = useState<File | null>(null);
   const [frontPreview, setFrontPreview] = useState<string | null>(educator.profile.idDocumentUrl || null);
@@ -954,6 +957,9 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
         city_id: cityId as string,
         identity_type: idType,
         identity_id: idNumber.trim(),
+        is_email_public: isEmailPublic,
+        is_phone_public: isPhonePublic,
+        is_identity_id_public: isIdentityIdPublic,
         experience_years: Math.max(0, Number(experienceYears) || 0),
       };
       if (frontRemoved) {
@@ -983,7 +989,7 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
 
   useEffect(() => {
     if (registerSave) registerSave(handleSave);
-  }, [registerSave, name, email, phone, gender, experienceYears, idType, idNumber, frontFile, backFile, nationalityId, countryId, cityId]);
+  }, [registerSave, name, email, phone, isEmailPublic, isPhonePublic, gender, experienceYears, idType, idNumber, isIdentityIdPublic, frontFile, backFile, nationalityId, countryId, cityId]);
 
   return (
     <InlineFormWrapper onSave={handleSave} onCancel={onCancel} loading={saving}>
@@ -1062,15 +1068,24 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
         <div className="space-y-6">
           <div>
             <h3 className={sectionTitleClass}>{t('profile.email')}</h3>
+            <p className={helperTextClass}>{t('profileSection.publicData.warning')}</p>
           </div>
           <div className="space-y-5">
             <div className="space-y-1">
               <label className={labelClass}>{t('profile.email')} <span className="text-red-500">*</span></label>
               <input value={email} onChange={e => setEmail(e.target.value)} placeholder="example@mail.com" className={inputClass} />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isEmailPublic} onChange={e => setIsEmailPublic(e.target.checked)} />
+                {t('profileSection.publicData.showEmail')}
+              </label>
             </div>
             <div className="space-y-1">
               <label className={labelClass}>{t('profile.phone')} <span className="text-red-500">*</span></label>
               <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="05xxxxxxxx" className={inputClass} />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={isPhonePublic} onChange={e => setIsPhonePublic(e.target.checked)} />
+                {t('profileSection.publicData.showPhone')}
+              </label>
             </div>
           </div>
           <div className="space-y-5 border-t border-slate-200 dark:border-slate-700 pt-6">
@@ -1087,6 +1102,10 @@ const BasicInfoForm: React.FC<{ educator: Educator; onSaved: (u: Educator) => vo
               <div className="space-y-1">
                 <label className={labelClass}>{t('profile.idNumber')} <span className="text-red-500">*</span></label>
                 <input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder={t('profile.idNumber')} className={inputClass} />
+                <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" checked={isIdentityIdPublic} onChange={e => setIsIdentityIdPublic(e.target.checked)} />
+                  {t('profileSection.publicData.showIdentityNumber')}
+                </label>
               </div>
             </div>
             {idType === 'passport' ? (

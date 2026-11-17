@@ -84,6 +84,30 @@ const PublicEducatorProfileView: React.FC<PublicEducatorProfileViewProps> = ({ e
           </div>
         </div>
 
+        {(profile.email || profile.phone || profile.identityNumber) && (
+          <PublicSection title={t('publicProfile.contactInfo')}>
+            {profile.email && (
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold">{t('profile.email')}: </span>
+                <a className="text-brand-primary hover:underline" href={`mailto:${profile.email}`}>{profile.email}</a>
+              </p>
+            )}
+            {profile.phone && (
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold">{t('profile.phone')}: </span>
+                <a className="text-brand-primary hover:underline" href={`tel:${profile.phone}`}>{profile.phone}</a>
+              </p>
+            )}
+            {profile.identityNumber && (
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold">{t('profile.idNumber')}: </span>
+                {profile.identityType ? `${t(`idType.${profile.identityType.toUpperCase()}`)} · ` : ''}
+                {profile.identityNumber}
+              </p>
+            )}
+          </PublicSection>
+        )}
+
         {(Boolean(profile.educationLevel) || profile.academicMajors.length > 0 || profile.certifications.length > 0) && (
           <PublicSection title={t('publicProfile.education')}>
             {profile.educationLevel && <p className="text-sm text-slate-600 dark:text-slate-300">{profile.educationLevel}</p>}
