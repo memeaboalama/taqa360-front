@@ -4,6 +4,7 @@ import { useData } from '../providers/DataProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import AdminApp from '../../features/admin/AdminApp';
 import { EducatorApp } from '../../features/educator/EducatorApp';
+import PublicEducatorProfileView from '../../features/educator/views/PublicEducatorProfileView';
 import AdminAuthFlow from '../../features/auth/components/AdminAuthFlow';
 import EducatorAuthFlow from '../../features/auth/components/EducatorAuthFlow';
 import PendingApprovalScreen from '../../features/auth/components/PendingApprovalScreen';
@@ -30,8 +31,8 @@ const LoggedOutShell: React.FC<{
 
   // Default to educator login for the public root. Admin has its own /admin path.
   const [route, setRoute] = useState<string>(() => {
-    return 'admin-auth';
-    // return 'educator-auth';
+    // return 'admin-auth';
+    return 'educator-auth';
   });
 
   const [startAuthView, setStartAuthView] = useState<'educator-login' | 'register'>(() => {
@@ -240,6 +241,13 @@ const AppRoutes: React.FC = () => {
       />
     </>
   );
+
+  const publicEducatorMatch = window.location.pathname.match(/^\/public\/educators\/([^/]+)\/?$/);
+  if (publicEducatorMatch) {
+    return withLogoutConfirmation(
+      <PublicEducatorProfileView educatorUuid={publicEducatorMatch[1]} />
+    );
+  }
 
   const hasInviteToken = new URLSearchParams(window.location.search).has('token');
 
