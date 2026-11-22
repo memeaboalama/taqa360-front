@@ -380,11 +380,56 @@ export interface LocalizedServiceText {
   en: string;
 }
 
+export type LocalizedServiceValue = string | Partial<LocalizedServiceText> | null;
+export type LocalizedServiceList = string[] | Partial<Record<'ar' | 'en', string[]>>;
+
+export interface AdminServiceProcessStep {
+  icon?: string;
+  title: LocalizedServiceValue;
+  description: LocalizedServiceValue;
+}
+
+export interface AdminServiceQuestion {
+  key: string;
+  label: LocalizedServiceValue;
+  type: 'text' | 'textarea' | 'number' | 'select';
+  options?: string[] | Partial<Record<'ar' | 'en', string[]>>;
+  help?: LocalizedServiceValue;
+  required?: boolean;
+}
+
+export interface AdminServiceDetails {
+  category?: LocalizedServiceValue;
+  icon?: string | null;
+  deliverables?: LocalizedServiceList | null;
+  exclusions?: LocalizedServiceList | null;
+  requirements?: LocalizedServiceList | null;
+  duration?: LocalizedServiceValue;
+  pricing?: LocalizedServiceValue;
+  requirements_note?: LocalizedServiceValue;
+  cta_title?: LocalizedServiceValue;
+  cta_help?: LocalizedServiceValue;
+  disclaimer?: LocalizedServiceValue;
+  process?: AdminServiceProcessStep[];
+}
+
+export interface AdminServiceRequestConfig {
+  mode?: 'onsite' | 'remote' | 'both';
+  solar?: boolean;
+  show_urgency?: boolean;
+  fields?: AdminServiceQuestion[];
+}
+
 export interface AdminManagedService {
   id: string;
   name: string | Partial<LocalizedServiceText>;
+  name_translations?: Partial<LocalizedServiceText>;
   description: string | Partial<LocalizedServiceText> | null;
+  description_translations?: Partial<LocalizedServiceText>;
   scope_of_work: string | Partial<LocalizedServiceText> | null;
+  scope_of_work_translations?: Partial<LocalizedServiceText>;
+  details?: AdminServiceDetails | null;
+  request_config?: AdminServiceRequestConfig | null;
   status: string;
 }
 
@@ -392,6 +437,8 @@ export interface AdminServicePayload {
   name: LocalizedServiceText;
   description: LocalizedServiceText;
   scope_of_work: LocalizedServiceText;
+  details: AdminServiceDetails;
+  request_config: AdminServiceRequestConfig;
 }
 
 export class AdminService {
