@@ -382,12 +382,7 @@ export interface LocalizedServiceText {
 
 export type LocalizedServiceValue = string | Partial<LocalizedServiceText> | null;
 export type LocalizedServiceList = string[] | Partial<Record<'ar' | 'en', string[]>>;
-
-export interface AdminServiceProcessStep {
-  icon?: string;
-  title: LocalizedServiceValue;
-  description: LocalizedServiceValue;
-}
+export type ServicePricingMode = 'quote' | 'fixed' | 'from';
 
 export interface AdminServiceQuestion {
   key: string;
@@ -396,21 +391,6 @@ export interface AdminServiceQuestion {
   options?: string[] | Partial<Record<'ar' | 'en', string[]>>;
   help?: LocalizedServiceValue;
   required?: boolean;
-}
-
-export interface AdminServiceDetails {
-  category?: LocalizedServiceValue;
-  icon?: string | null;
-  deliverables?: LocalizedServiceList | null;
-  exclusions?: LocalizedServiceList | null;
-  requirements?: LocalizedServiceList | null;
-  duration?: LocalizedServiceValue;
-  pricing?: LocalizedServiceValue;
-  requirements_note?: LocalizedServiceValue;
-  cta_title?: LocalizedServiceValue;
-  cta_help?: LocalizedServiceValue;
-  disclaimer?: LocalizedServiceValue;
-  process?: AdminServiceProcessStep[];
 }
 
 export interface AdminServiceRequestConfig {
@@ -428,7 +408,13 @@ export interface AdminManagedService {
   description_translations?: Partial<LocalizedServiceText>;
   scope_of_work: string | Partial<LocalizedServiceText> | null;
   scope_of_work_translations?: Partial<LocalizedServiceText>;
-  details?: AdminServiceDetails | null;
+  deliverables?: LocalizedServiceList | null;
+  exclusions?: LocalizedServiceList | null;
+  requirements?: LocalizedServiceList | null;
+  duration?: LocalizedServiceValue;
+  duration_translations?: Partial<LocalizedServiceText>;
+  pricing_mode?: ServicePricingMode;
+  price?: string | number | null;
   request_config?: AdminServiceRequestConfig | null;
   status: string;
 }
@@ -437,7 +423,12 @@ export interface AdminServicePayload {
   name: LocalizedServiceText;
   description: LocalizedServiceText;
   scope_of_work: LocalizedServiceText;
-  details: AdminServiceDetails;
+  deliverables: Record<'ar' | 'en', string[]>;
+  exclusions: Record<'ar' | 'en', string[]>;
+  requirements: Record<'ar' | 'en', string[]>;
+  duration: LocalizedServiceText;
+  pricing_mode: ServicePricingMode;
+  price: number | null;
   request_config: AdminServiceRequestConfig;
 }
 

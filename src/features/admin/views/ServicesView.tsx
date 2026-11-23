@@ -18,17 +18,13 @@ import type {
   LocalizedServiceList,
   LocalizedServiceText,
   LocalizedServiceValue,
+  ServicePricingMode,
 } from '../services/AdminService';
 
 type Locale = 'ar' | 'en';
 type LocalizedLines = Record<Locale, string>;
 type QuestionType = AdminServiceQuestion['type'];
-
-interface ProcessStepForm {
-  icon: string;
-  title: LocalizedServiceText;
-  description: LocalizedServiceText;
-}
+type ServiceEditorTab = 'basics' | 'request';
 
 interface QuestionForm {
   key: string;
@@ -43,18 +39,12 @@ interface ServiceEditorValues {
   name: LocalizedServiceText;
   description: LocalizedServiceText;
   scopeOfWork: LocalizedServiceText;
-  category: LocalizedServiceText;
-  icon: string;
-  pricing: LocalizedServiceText;
-  duration: LocalizedServiceText;
   deliverables: LocalizedLines;
   exclusions: LocalizedLines;
   requirements: LocalizedLines;
-  requirementsNote: LocalizedServiceText;
-  ctaTitle: LocalizedServiceText;
-  ctaHelp: LocalizedServiceText;
-  disclaimer: LocalizedServiceText;
-  process: ProcessStepForm[];
+  duration: LocalizedServiceText;
+  pricingMode: ServicePricingMode;
+  price: string;
   requestMode: 'onsite' | 'remote' | 'both';
   solar: boolean;
   showUrgency: boolean;
@@ -89,7 +79,6 @@ const normalizeLocalizedLines = (value: LocalizedServiceList | null | undefined,
 const splitLines = (value: string): string[] => value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
 const createEditorValues = (service: AdminManagedService | null, language: Locale): ServiceEditorValues => {
-  const details = service?.details;
   const config: AdminServiceRequestConfig = service?.request_config ?? {};
   const name = service?.name_translations ?? service?.name;
   const description = service?.description_translations ?? service?.description;
@@ -99,22 +88,12 @@ const createEditorValues = (service: AdminManagedService | null, language: Local
     name: normalizeLocalizedText(name, language),
     description: normalizeLocalizedText(description, language),
     scopeOfWork: normalizeLocalizedText(scopeOfWork, language),
-    category: normalizeLocalizedText(details?.category, language),
-    icon: details?.icon ?? '',
-    pricing: normalizeLocalizedText(details?.pricing, language),
-    duration: normalizeLocalizedText(details?.duration, language),
-    deliverables: normalizeLocalizedLines(details?.deliverables, language),
-    exclusions: normalizeLocalizedLines(details?.exclusions, language),
-    requirements: normalizeLocalizedLines(details?.requirements, language),
-    requirementsNote: normalizeLocalizedText(details?.requirements_note, language),
-    ctaTitle: normalizeLocalizedText(details?.cta_title, language),
-    ctaHelp: normalizeLocalizedText(details?.cta_help, language),
-    disclaimer: normalizeLocalizedText(details?.disclaimer, language),
-    process: (details?.process ?? []).map((step) => ({
-      icon: step.icon ?? '',
-      title: normalizeLocalizedText(step.title, language),
-      description: normalizeLocalizedText(step.description, language),
-    })),
+    deliverables: normalizeLocalizedLines(service?.deliverables, language),
+    exclusions: normalizeLocalizedLines(service?.exclusions, language),
+    requirements: normalizeLocalizedLines(service?.requirements, language),
+    duration: normalizeLocalizedText(service?.duration_translations ?? service?.duration, language),
+    pricingMode: service?.pricing_mode ?? 'quote',
+    price: service?.price == null ? '' : String(service.price),
     requestMode: config.mode ?? 'both',
     solar: config.solar ?? false,
     showUrgency: config.show_urgency ?? true,
@@ -152,6 +131,25 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
   const [values, setValues] = useState(() => createEditorValues(service, language));
   const [isEditing, setIsEditing] = useState(!service);
   const [nameError, setNameError] = useState('');
+  const [priceError, setPriceError] = useState('');
+  const [activeTab, setActiveTab] = useState<ServiceEditorTab>('basics');
+  const tabs: { id: ServiceEditorTab; label: string }[] = [
+    { id: 'basics', label: t('services.basicsTab') },
+    { id: 'request', label: t('services.requestSection') },
+  ];
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex = index;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = tabs.length - 1;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      const direction = (event.key === 'ArrowRight' ? 1 : -1) * (language === 'ar' ? -1 : 1);
+      nextIndex = (index + direction + tabs.length) % tabs.length;
+    } else return;
+    event.preventDefault();
+    setActiveTab(tabs[nextIndex].id);
+    document.getElementById(`service-tab-${tabs[nextIndex].id}`)?.focus();
+  };
 
   const cancelEditing = () => {
     if (!service) {
@@ -161,6 +159,7 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
 
     setValues(createEditorValues(service, language));
     setNameError('');
+    setPriceError('');
     setIsEditing(false);
   };
 
@@ -170,33 +169,28 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
 
     const name = { ar: values.name.ar.trim(), en: values.name.en.trim() };
     if (!name.ar || !name.en) {
+      setActiveTab('basics');
       setNameError(t('services.nameRequiredBoth'));
       return;
     }
 
+    if (values.pricingMode !== 'quote' && (!values.price.trim() || !Number.isFinite(Number(values.price)) || Number(values.price) < 0 || Number(values.price) > 9999999999.99)) {
+      setActiveTab('request');
+      setPriceError(t('services.priceInvalid'));
+      return;
+    }
     setNameError('');
+    setPriceError('');
     const payload: AdminServicePayload = {
       name,
       description: { ar: values.description.ar.trim(), en: values.description.en.trim() },
       scope_of_work: { ar: values.scopeOfWork.ar.trim(), en: values.scopeOfWork.en.trim() },
-      details: {
-        category: values.category,
-        icon: values.icon.trim(),
-        pricing: values.pricing,
-        duration: values.duration,
-        deliverables: { ar: splitLines(values.deliverables.ar), en: splitLines(values.deliverables.en) },
-        exclusions: { ar: splitLines(values.exclusions.ar), en: splitLines(values.exclusions.en) },
-        requirements: { ar: splitLines(values.requirements.ar), en: splitLines(values.requirements.en) },
-        requirements_note: values.requirementsNote,
-        cta_title: values.ctaTitle,
-        cta_help: values.ctaHelp,
-        disclaimer: values.disclaimer,
-        process: values.process.map((step) => ({
-          icon: step.icon.trim(),
-          title: step.title,
-          description: step.description,
-        })),
-      },
+      deliverables: { ar: splitLines(values.deliverables.ar), en: splitLines(values.deliverables.en) },
+      exclusions: { ar: splitLines(values.exclusions.ar), en: splitLines(values.exclusions.en) },
+      requirements: { ar: splitLines(values.requirements.ar), en: splitLines(values.requirements.en) },
+      duration: { ar: values.duration.ar.trim(), en: values.duration.en.trim() },
+      pricing_mode: values.pricingMode,
+      price: values.pricingMode === 'quote' ? null : Number(values.price),
       request_config: {
         mode: values.requestMode,
         solar: values.solar,
@@ -272,13 +266,6 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
     </div>
   );
 
-  const updateProcessStep = (index: number, patch: Partial<ProcessStepForm>) => {
-    setValues((current) => ({
-      ...current,
-      process: current.process.map((step, stepIndex) => stepIndex === index ? { ...step, ...patch } : step),
-    }));
-  };
-
   const updateQuestion = (index: number, patch: Partial<QuestionForm>) => {
     setValues((current) => ({
       ...current,
@@ -313,8 +300,27 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
       </div>
 
       <form noValidate onSubmit={handleSubmit} className="space-y-5 rounded-xl border bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('services.contentSection')}</h2>
+        <div role="tablist" aria-label={t('services.editorTabs')} className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2 dark:border-gray-700">
+          {tabs.map((tab, index) => (
+            <button
+              key={tab.id}
+              id={`service-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`service-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+              className={`shrink-0 rounded-lg px-4 py-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === tab.id ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <section id="service-panel-basics" role="tabpanel" aria-labelledby="service-tab-basics" hidden={activeTab !== 'basics'} className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('services.basicsTab')}</h2>
           {renderLocalizedField(t('services.name'), values.name, (name) => {
             setValues((current) => ({ ...current, name }));
             if (name.ar.trim() && name.en.trim()) setNameError('');
@@ -322,55 +328,11 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
           {nameError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{nameError}</p>}
           {renderLocalizedField(t('services.description'), values.description, (description) => setValues((current) => ({ ...current, description })), { multiline: true, rows: 3, maxLength: 500 })}
           {renderLocalizedField(t('services.scopeOfWork'), values.scopeOfWork, (scopeOfWork) => setValues((current) => ({ ...current, scopeOfWork })), { multiline: true, rows: 5, maxLength: 5000 })}
-        </section>
-
-        <section className="space-y-4 border-t border-gray-200 pt-5 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('services.detailsSection')}</h2>
-          {renderLocalizedField(t('services.category'), values.category, (category) => setValues((current) => ({ ...current, category })))}
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {t('services.icon')}
-            <input value={values.icon} onChange={(event) => setValues((current) => ({ ...current, icon: event.target.value }))} disabled={!isEditing} className={`${fieldClassName} mt-1`} />
-          </label>
-          {renderLocalizedField(t('services.pricing'), values.pricing, (pricing) => setValues((current) => ({ ...current, pricing })))}
-          {renderLocalizedField(t('services.duration'), values.duration, (duration) => setValues((current) => ({ ...current, duration })))}
           {renderLocalizedLines(t('services.deliverables'), values.deliverables, (deliverables) => setValues((current) => ({ ...current, deliverables })))}
           {renderLocalizedLines(t('services.exclusions'), values.exclusions, (exclusions) => setValues((current) => ({ ...current, exclusions })))}
-          {renderLocalizedLines(t('services.requirements'), values.requirements, (requirements) => setValues((current) => ({ ...current, requirements })))}
-          {renderLocalizedField(t('services.requirementsNote'), values.requirementsNote, (requirementsNote) => setValues((current) => ({ ...current, requirementsNote })), { multiline: true })}
-          {renderLocalizedField(t('services.ctaTitle'), values.ctaTitle, (ctaTitle) => setValues((current) => ({ ...current, ctaTitle })))}
-          {renderLocalizedField(t('services.ctaHelp'), values.ctaHelp, (ctaHelp) => setValues((current) => ({ ...current, ctaHelp })), { multiline: true })}
-          {renderLocalizedField(t('services.disclaimer'), values.disclaimer, (disclaimer) => setValues((current) => ({ ...current, disclaimer })), { multiline: true })}
         </section>
 
-        <section className="space-y-4 border-t border-gray-200 pt-5 dark:border-gray-700">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('services.processSection')}</h2>
-            <button type="button" disabled={!isEditing} onClick={() => setValues((current) => ({
-              ...current,
-              process: [...current.process, { icon: '', title: emptyLocalizedText(), description: emptyLocalizedText() }],
-            }))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-600">
-              {t('services.addStep')}
-            </button>
-          </div>
-          {values.process.map((step, index) => (
-            <div key={`step-${index}`} className="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('services.stepTitle')} {index + 1}</h3>
-                <button type="button" disabled={!isEditing} onClick={() => setValues((current) => ({ ...current, process: current.process.filter((_, stepIndex) => stepIndex !== index) }))} className="text-sm text-red-600 disabled:opacity-50">
-                  {t('services.remove')}
-                </button>
-              </div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                {t('services.icon')}
-                <input value={step.icon} onChange={(event) => updateProcessStep(index, { icon: event.target.value })} disabled={!isEditing} className={`${fieldClassName} mt-1`} />
-              </label>
-              {renderLocalizedField(t('services.stepTitle'), step.title, (title) => updateProcessStep(index, { title }))}
-              {renderLocalizedField(t('services.stepDescription'), step.description, (description) => updateProcessStep(index, { description }), { multiline: true })}
-            </div>
-          ))}
-        </section>
-
-        <section className="space-y-4 border-t border-gray-200 pt-5 dark:border-gray-700">
+        <section id="service-panel-request" role="tabpanel" aria-labelledby="service-tab-request" hidden={activeTab !== 'request'} className="space-y-4">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('services.requestSection')}</h2>
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
             {t('services.formMode')}
@@ -380,6 +342,29 @@ const ServiceEditor: React.FC<ServiceEditorProps> = ({ service, language, isSavi
               <option value="remote">{t('services.remoteMode')}</option>
             </select>
           </label>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+            {t('services.pricingMode')}
+            <select value={values.pricingMode} onChange={(event) => {
+              setValues((current) => ({ ...current, pricingMode: event.target.value as ServicePricingMode }));
+              setPriceError('');
+            }} disabled={!isEditing} className={`${fieldClassName} mt-1`}>
+              <option value="quote">{t('services.priceQuote')}</option>
+              <option value="fixed">{t('services.priceFixed')}</option>
+              <option value="from">{t('services.priceFrom')}</option>
+            </select>
+          </label>
+          {values.pricingMode !== 'quote' && (
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+              {t('services.displayPrice')}
+              <input type="number" min="0" max="9999999999.99" step="0.01" required value={values.price}
+                onChange={(event) => { setValues((current) => ({ ...current, price: event.target.value })); setPriceError(''); }}
+                disabled={!isEditing} aria-invalid={Boolean(priceError)} className={`${fieldClassName} mt-1`} />
+            </label>
+          )}
+          {priceError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{priceError}</p>}
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('services.priceHelp')}</p>
+          {renderLocalizedField(t('services.duration'), values.duration, (duration) => setValues((current) => ({ ...current, duration })), { maxLength: 500 })}
+          {renderLocalizedLines(t('services.requirements'), values.requirements, (requirements) => setValues((current) => ({ ...current, requirements })))}
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <input type="checkbox" checked={values.solar} onChange={(event) => setValues((current) => ({ ...current, solar: event.target.checked }))} disabled={!isEditing} />
             {t('services.solarRequest')}
