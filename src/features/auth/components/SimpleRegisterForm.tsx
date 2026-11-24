@@ -5,6 +5,8 @@ import LanguageSwitcher from '../../../shared/components/LanguageSwitcher';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
 import { useEducatorAuth } from '../hooks/useEducatorAuth';
 import { AdminService } from '../../admin/services/AdminService';
+import { apiClient } from '../../../core/api/client';
+import { API_BASE_URL } from '../../../core/api/config';
 
 interface SimpleRegisterFormProps {
   onNavigateToLogin: () => void;
@@ -27,12 +29,43 @@ interface InvitationFormData {
   passwordConfirmation: string;
 }
 
+interface FooterLegalLinksResponse {
+  terms_url: string | null;
+  privacy_url: string | null;
+}
+
+function resolveFooterLegalUrl(value: unknown, language: 'ar' | 'en'): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+
+  const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+  const url = new URL(value, baseUrl);
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Footer legal links must use HTTP or HTTPS.');
+  }
+
+  const platformOrigin = new URL(baseUrl).origin;
+  const hasLocalePrefix = /^\/(?:ar|en)(?:\/|$)/.test(url.pathname);
+
+  if (url.origin === platformOrigin && !hasLocalePrefix) {
+    url.pathname = `/${language}${url.pathname === '/' ? '/' : url.pathname}`;
+  }
+
+  return url.toString();
+}
+
 const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({ 
   onNavigateToLogin,
   onNavigateToEmailVerification 
 }) => {
   const { t, language } = useLanguage();
   const { register: registerUser, isRegisterPending, registerError } = useEducatorAuth();
+  const [footerLegalLinks, setFooterLegalLinks] = useState<{ termsUrl: string | null; privacyUrl: string | null }>({
+    termsUrl: null,
+    privacyUrl: null,
+  });
+  const [areFooterLegalLinksLoading, setAreFooterLegalLinksLoading] = useState(true);
+  const [footerLegalLinksError, setFooterLegalLinksError] = useState<string | null>(null);
 
   const [token, setToken] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -43,6 +76,46 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
     const t = params.get('token');
     if (t) setToken(t);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    setFooterLegalLinks({ termsUrl: null, privacyUrl: null });
+    setAreFooterLegalLinksLoading(true);
+    setFooterLegalLinksError(null);
+
+    const loadFooterLegalLinks = async () => {
+      try {
+        const response = await apiClient.get<FooterLegalLinksResponse>('/ecommerce/footer-legal-links');
+        const links = response.data?.data;
+        const termsUrl = resolveFooterLegalUrl(links?.terms_url, language);
+        const privacyUrl = resolveFooterLegalUrl(links?.privacy_url, language);
+
+        if (!response.data?.status || !termsUrl || !privacyUrl) {
+          throw new Error(response.data?.message || 'Footer legal links are not configured.');
+        }
+
+        if (isMounted) {
+          setFooterLegalLinks({ termsUrl, privacyUrl });
+          setFooterLegalLinksError(null);
+        }
+      } catch (error) {
+        console.error('Failed to load footer legal links from site footer settings', error);
+        if (isMounted) {
+          setFooterLegalLinksError(language === 'ar'
+            ? 'تعذر تحميل روابط الشروط والخصوصية من إعدادات فوتر الموقع.'
+            : 'Could not load the terms and privacy links from the site footer settings.');
+        }
+      } finally {
+        if (isMounted) setAreFooterLegalLinksLoading(false);
+      }
+    };
+
+    void loadFooterLegalLinks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [language]);
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<SimpleRegistrationFormData>({
     defaultValues: {
@@ -66,7 +139,7 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
         email: data.email,
         password: data.password,
         password_confirmation: data.passwordConfirmation,
-        agree_terms: true,
+        agree_terms: data.agreeToTerms,
         platform: 'web',
         device_token: null
       };
@@ -110,6 +183,8 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
         .btn-primary:active { transform: translateY(1px); }
         .btn-primary:hover { background-color: var(--primary-hover); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .legal-link { color: var(--primary-color); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .legal-link:hover { color: var(--primary-hover); }
         .register-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 20px); background: var(--light-bg-color); }
         .card { background-color: white; padding: 16px; border-radius: 12px; box-shadow: 0 12px 30px rgba(16,24,40,0.06); width: 100%; max-width: 380px; }
         @media (min-width: 768px) { .card { padding: 20px; max-width: 440px; } .form-input { height: 48px; } .btn-primary{height:52px;} }
@@ -208,14 +283,34 @@ const SimpleRegisterForm: React.FC<SimpleRegisterFormProps> = ({
                 </div>
 
                 <div>
+                  {footerLegalLinksError && (
+                    <p role="alert" className="text-red-500 text-xs mb-2">{footerLegalLinksError}</p>
+                  )}
                   <label className="flex items-center gap-3">
-                    <input type="checkbox" {...register('agreeToTerms', { required: language === 'ar' ? 'يجب الموافقة على الشروط والأحكام' : 'You must agree to the terms' })} className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{language === 'ar' ? 'أوافق على ' : 'I agree to '}<a href="/terms" style={{ color: 'var(--primary-color)' }}>{language === 'ar' ? 'الشروط والأحكام' : 'terms and conditions'}</a></span>
+                    <input type="checkbox" {...register('agreeToTerms', { required: language === 'ar' ? 'يجب الموافقة على الشروط والأحكام وسياسة الخصوصية' : 'You must agree to the terms and conditions and privacy policy' })} className="h-4 w-4 mr-1" />
+                    <span className="text-sm">
+                      {language === 'ar' ? 'أوافق على ' : 'I agree to '}
+                      {footerLegalLinks.termsUrl ? (
+                        <a className="legal-link" href={footerLegalLinks.termsUrl} target="_blank" rel="noopener noreferrer">{language === 'ar' ? 'الشروط والأحكام' : 'terms and conditions'}</a>
+                      ) : (
+                        <span>{language === 'ar' ? 'الشروط والأحكام' : 'terms and conditions'}</span>
+                      )}
+                      {language === 'ar' ? ' و' : ' and '}
+                      {footerLegalLinks.privacyUrl ? (
+                        <a className="legal-link" href={footerLegalLinks.privacyUrl} target="_blank" rel="noopener noreferrer">{language === 'ar' ? 'سياسة الخصوصية' : 'privacy policy'}</a>
+                      ) : (
+                        <span>{language === 'ar' ? 'سياسة الخصوصية' : 'privacy policy'}</span>
+                      )}
+                    </span>
                   </label>
                   {errors.agreeToTerms && <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms.message}</p>}
                 </div>
 
-                <button type="submit" disabled={isRegisterPending} className="btn-primary">
+                <button
+                  type="submit"
+                  disabled={isRegisterPending || areFooterLegalLinksLoading || !footerLegalLinks.termsUrl || !footerLegalLinks.privacyUrl}
+                  className="btn-primary"
+                >
                   {isRegisterPending ? (
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
