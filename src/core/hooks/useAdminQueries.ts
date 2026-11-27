@@ -52,6 +52,15 @@ export function usePendingApprovals(params?: QueryParams) {
   );
 }
 
+export function usePendingProductOrdersCount() {
+  return useQuery({
+    queryKey: ['admin', 'dashboard', 'pending-product-orders-count'],
+    queryFn: () => adminService.getPendingProductOrdersCount(),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useSystemHealth() {
   return useBaseQuery(
     QueryKeyFactory.all('system-health'),

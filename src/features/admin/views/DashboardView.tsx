@@ -7,7 +7,7 @@ import React from 'react';
 import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { useAdminEducators, useAdminEducationalRequests, useAdminProjects, useAdminUsers, usePendingApprovals } from '../../../core/hooks/useAdminQueries';
+import { useAdminEducators, useAdminEducationalRequests, useAdminProjects, useAdminUsers, usePendingApprovals, usePendingProductOrdersCount } from '../../../core/hooks/useAdminQueries';
 import { StatsCardSkeleton, ErrorState, EmptyState } from '../../../core/components/LoadingStates';
 import { AdminViewType, EducationalRequest, Project } from '../../../shared/types';
 import { useLanguage } from '../../../app/providers/LanguageProvider';
@@ -108,7 +108,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
   const usersQuery = useAdminUsers({ page: 1, per_page: 1 });
   const requestsQuery = useAdminEducationalRequests({ page: 1, per_page: 10 });
   const pendingApprovals = usePendingApprovals({ page: 1, per_page: 100 });
-  const isLoading = projectsQuery.isLoading || educatorsQuery.isLoading || usersQuery.isLoading || requestsQuery.isLoading || pendingApprovals.isLoading;
+  const pendingProductOrdersQuery = usePendingProductOrdersCount();
+  const isLoading = projectsQuery.isLoading || educatorsQuery.isLoading || usersQuery.isLoading || requestsQuery.isLoading || pendingApprovals.isLoading || pendingProductOrdersQuery.isLoading;
   const isError = projectsQuery.isError || educatorsQuery.isError || usersQuery.isError || requestsQuery.isError || pendingApprovals.isError;
   const recentProjects = extractList<Project>(projectsQuery.data, ['projects']);
   const latestRequests = extractList<DashboardRequest>(requestsQuery.data, ['educationalRequests', 'educational_requests', 'requests']);
@@ -209,6 +210,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
     total_projects: projectsQuery.totalItems || recentProjects.length,
     total_educators: educatorsQuery.totalItems || educators.length,
     pending_requests: pendingApprovals.totalItems || approvals.length,
+    pending_product_orders: pendingProductOrdersQuery.data ?? 0,
     total_users: usersQuery.totalItems || users.length
   };
   const translateStatus = (status?: string | null) =>
@@ -255,9 +257,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, index) => (
+          Array.from({ length: 5 }).map((_, index) => (
             <StatsCardSkeleton key={index} />
           ))
         ) : (
@@ -287,7 +289,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
             />
 
             <StatsCard
-              title="الطلبات المعلقة"
+              title="طلبات التسجيل المعلقة"
               value={stats.pending_requests}
               icon={
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -296,6 +298,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ navigateTo }) => {
               }
               color="bg-yellow-500"
               onClick={() => navigateTo('educatorApplications')}
+            />
+
+            <StatsCard
+              title="طلبات المنتجات المعلقة"
+              value={stats.pending_product_orders}
+              icon={
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              }
+              color="bg-orange-500"
             />
 
             <StatsCard

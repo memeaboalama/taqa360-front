@@ -8,6 +8,7 @@ export const adminService = {
   // Dashboard and system
   getDashboard: () => FeatureAdminService.getDashboardStats(),
   getDashboardStats: (period?: '7d' | '30d' | '90d') => FeatureAdminService.getDashboardStats(),
+  getPendingProductOrdersCount: () => FeatureAdminService.getPendingProductOrdersCount(),
   getActivityFeed: (params?: any) => FeatureAdminService.getActivityFeed(params),
   getPendingApprovals: (params?: QueryParams) => FeatureAdminService.getEducatorApplications({
     ...params,

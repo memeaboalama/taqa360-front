@@ -112,8 +112,10 @@ const ProjectCard: React.FC<{
                     <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 truncate">{totalTasks}</p>
                 </div>
                 <div className="min-w-0">
-                    <p className="text-slate-500 dark:text-slate-400 truncate">{t('projectsView.type')}</p>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 truncate">{t(`projectType.${project.creationType?.toLowerCase() || 'public'}`)}</p>
+                    <p className="text-slate-500 dark:text-slate-400 truncate">{t('projectsView.bidsCount')}</p>
+                    <p className="font-bold mt-1 truncate" style={{ color: 'var(--primary-color)' }}>
+                        {project.bidsCount ?? project.bids_count ?? project.bids?.length ?? 0}
+                    </p>
                 </div>
             </div>
 
@@ -166,6 +168,11 @@ const ProjectRow: React.FC<{
             </td>
             <td className="px-6 py-4">{project.budget ? `${project.budget.toLocaleString()} ${t('sarCurrency')}` : t('projectsView.notSet')}</td>
             <td className="px-6 py-4">{getProjectTaskCount(project)}</td>
+            <td className="px-6 py-4">
+                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold bg-brand-primary/10 text-brand-primary">
+                    {project.bidsCount ?? project.bids_count ?? project.bids?.length ?? 0}
+                </span>
+            </td>
             <td className="px-6 py-4">{project.deadline || t('projectsView.notSet')}</td>
             <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
@@ -568,6 +575,9 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ navigateTo, activeTab }) =>
                       </th>
                       <th scope="col" className="px-6 py-3">
                         {t('projectsView.tasks')}
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        {t('projectsView.bidsCount')}
                       </th>
                       <th scope="col" className="px-6 py-3">
                         {t('modals.deadline')}

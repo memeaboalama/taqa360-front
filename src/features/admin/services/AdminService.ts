@@ -1237,6 +1237,12 @@ export class AdminService {
     return response.data;
   }
 
+  static async getPendingProductOrdersCount(): Promise<number> {
+    const response = await apiClient.get<any>('/admin/dashboard/pending-product-orders-count');
+    const raw = response.data as any;
+    return Number(raw?.data?.count ?? raw?.count ?? 0);
+  }
+
   /**
    * Bid Tasks (Admin)
    */

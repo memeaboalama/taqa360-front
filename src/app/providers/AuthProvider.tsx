@@ -29,11 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userRole = user?.role as 'admin' | 'educator' | 'user' | null || null;
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(user);
 
-    // Sync with auth store
+    // Sync with auth store, and clear stale persisted session if auth_token was removed
     useEffect(() => {
+        const hasToken = Boolean(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'));
+        if (isAuthenticated && !hasToken) {
+            storeLogout();
+            return;
+        }
         setAuthStatus(status);
         setCurrentUser(user);
-    }, [status, user]);
+    }, [status, user, isAuthenticated, storeLogout]);
 
     const logout = async () => {
         await storeLogout();

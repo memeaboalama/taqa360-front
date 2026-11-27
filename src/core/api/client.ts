@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { AuthUser, LoginResponse, PaginatedResponse, ApiResponse } from '../../shared/types';
 import { API_BASE_URL } from './config';
+import { useAuthStore } from '../../features/auth/stores/authStore';
 
 interface InternalAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
@@ -134,7 +135,7 @@ class ApiClient {
     localStorage.removeItem('refresh_token');
     sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('refresh_token');
-    // Optionally, redirect to login page or trigger a global logout event
+    useAuthStore.getState().logout();
   }
 
   public async get<T>(url: string, params?: object, config?: AxiosRequestConfig): Promise<AxiosResponse<ApiResponse<T>>> {
